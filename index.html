@@ -3,218 +3,367 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spy Game - Names Edition</title>
+    <title>Spy Game - Ultimate Edition</title>
     
-    <!-- Modern Kurdish Font -->
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap" rel="stylesheet">
-    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
+        /* --- VARIABLES & RESET --- */
         :root {
-            --primary: #4e54c8;
-            --secondary: #8f94fb;
-            --accent: #ff0055;
-            --spy-bg: #e74c3c;
-            --glass: rgba(255, 255, 255, 0.95);
-            --shadow: 0 10px 30px rgba(0,0,0,0.2);
-            --text-dark: #2d3436;
+            --bg-dark: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.6);
+            --accent: #f43f5e;
+            --accent-glow: rgba(244, 63, 94, 0.6);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --card-front: linear-gradient(135deg, #1e293b, #0f172a);
+            --card-back-citizen: linear-gradient(135deg, #e0e7ff, #fff);
+            --card-back-spy: linear-gradient(135deg, #ffe4e6, #fff1f2);
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Vazirmatn', sans-serif; user-select: none; }
-        body { margin: 0; padding: 0; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
-
-        /* BACKGROUND PARTICLES */
-        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; padding: 0; margin: 0; }
-        .particles li { position: absolute; display: block; list-style: none; width: 20px; height: 20px; background: rgba(255,255,255,0.15); animation: rise 20s linear infinite; bottom: -150px; border-radius: 4px; }
-        .particles li:nth-child(1){ left: 25%; width: 80px; height: 80px; animation-delay: 0s; }
-        .particles li:nth-child(2){ left: 10%; width: 20px; height: 20px; animation-delay: 2s; animation-duration: 12s; }
-        .particles li:nth-child(3){ left: 70%; width: 20px; height: 20px; animation-delay: 4s; }
-        @keyframes rise { 0%{ transform: translateY(0) rotate(0deg); opacity: 1; } 100%{ transform: translateY(-1000px) rotate(720deg); opacity: 0; } }
-
-        /* CONTAINER */
-        .container { width: 90%; max-width: 480px; background: var(--glass); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-radius: 24px; padding: 30px 25px; box-shadow: var(--shadow); text-align: center; z-index: 10; position: relative; transition: all 0.3s ease; max-height: 90vh; overflow-y: auto; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Vazirmatn', sans-serif; user-select: none; outline: none; }
         
-        /* SCROLLBAR HIDDEN */
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; color: var(--text-main);
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- BACKGROUND SHAPES --- */
+        .blobs { position: absolute; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.4;
+            animation: floatBlob 10s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .blob:nth-child(1) { top: -10%; left: -10%; width: 300px; height: 300px; background: var(--primary); }
+        .blob:nth-child(2) { bottom: -10%; right: -10%; width: 250px; height: 250px; background: var(--accent); animation-delay: -5s; }
+        @keyframes floatBlob { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(30px, -30px) scale(1.1); } }
+
+        /* --- MAIN CONTAINER --- */
+        .container {
+            width: 90%; max-width: 450px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 30px 25px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            z-index: 10;
+            position: relative;
+            transform: translateY(0);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        /* Hide Scrollbar */
         .container::-webkit-scrollbar { display: none; }
-        .container { -ms-overflow-style: none; scrollbar-width: none; }
 
-        h1 { color: var(--text-dark); font-weight: 900; margin: 0 0 5px 0; font-size: 1.8rem; }
-        .subtitle { color: #666; margin-bottom: 20px; font-size: 0.9rem; }
-
-        /* INPUTS */
-        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
-        .main-input { flex: 1; padding: 12px 15px; border: 2px solid #eee; border-radius: 12px; font-size: 1rem; outline: none; transition: 0.3s; text-align: right; }
-        .main-input:focus { border-color: var(--primary); background: #fff; }
-        
-        .add-btn { background: var(--primary); color: white; border: none; border-radius: 12px; width: 50px; cursor: pointer; font-size: 1.2rem; transition: 0.2s; }
-        .add-btn:active { transform: scale(0.9); }
-
-        .names-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center; min-height: 40px; }
-        .name-tag { background: #eef0f7; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; color: #444; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .name-tag i { color: var(--accent); cursor: pointer; opacity: 0.6; transition: 0.2s; }
-        .name-tag i:hover { opacity: 1; transform: scale(1.2); }
-
-        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
-
-        .info-bar { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 15px; border-radius: 12px; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold; color: #555; }
-        .spy-control { display: flex; align-items: center; gap: 10px; }
-        .spy-control input { width: 50px; border: 1px solid #ccc; border-radius: 8px; text-align: center; padding: 5px; font-weight: bold; color: var(--accent); }
-
-        /* BUTTONS */
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4e54c8, #8f94fb); color: white; font-size: 1.1rem; font-weight: 800; cursor: pointer; box-shadow: 0 8px 20px rgba(78, 84, 200, 0.3); transition: transform 0.2s; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 10px; }
-        .btn:active { transform: scale(0.97); }
-        .btn.secondary { background: #f1f2f6; color: #444; box-shadow: none; }
-        .btn.outline { background: transparent; border: 2px solid #ddd; color: #666; box-shadow: none; }
-
-        /* CARD GAME */
-        .card-container { perspective: 1000px; width: 100%; height: 320px; margin: 20px 0; position: relative; }
-        .card { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); border-radius: 20px; cursor: pointer; box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
-        .card.is-flipped { transform: rotateY(180deg); }
-        .card.disabled { pointer-events: none; opacity: 0.9; cursor: wait; }
-
-        .card-face { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        .card-front { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; border: 2px solid rgba(255,255,255,0.1); }
-        .icon-large { font-size: 4rem; margin-bottom: 15px; opacity: 0.9; }
-        
-        /* BACK CARD */
-        .card-back { background: white; transform: rotateY(180deg); color: #333; border: 4px solid #1e3c72; }
-        
-        /* SPY STYLE */
-        .card.spy-active .card-back { background: var(--spy-bg); border-color: #000; }
-        .card.spy-active .card-back .role-text { color: black; opacity: 0.8; }
-        .card.spy-active .card-back .word-text { font-size: 5rem; margin: 0; } 
-        .card.spy-active .card-back .desc { color: #222; font-weight: bold; }
-
-        .role-text { font-size: 1.5rem; letter-spacing: 1px; color: #888; text-transform: uppercase; font-weight: bold; }
-        .word-text { font-size: 2.8rem; font-weight: 900; color: #2a5298; margin: 15px 0; line-height: 1.1; }
-        .desc { font-size: 0.9rem; color: #888; }
-
-        /* UTILS */
+        /* SCREEN TRANSITIONS */
         .hidden { display: none !important; }
-        .error { color: #e74c3c; font-size: 0.85rem; margin-bottom: 10px; font-weight: bold; min-height: 18px; }
-        .badge { background: #eee; padding: 5px 15px; border-radius: 50px; font-size: 1rem; color: #333; margin-bottom: 10px; display: inline-block; font-weight: bold; border: 1px solid #ddd; }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- TYPOGRAPHY --- */
+        h1 { margin: 0; font-size: 2rem; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(255,255,255,0.1); }
+        .subtitle { color: var(--text-muted); margin-top: 5px; font-size: 0.9rem; margin-bottom: 25px; font-weight: 300; }
+
+        /* --- FOOTER --- */
+        .footer {
+            margin-top: 25px; padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.75rem; color: rgba(255,255,255,0.4);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .footer b { color: var(--primary); font-weight: 900; }
+
+        /* --- INPUTS --- */
+        .input-group { position: relative; margin-bottom: 20px; display: flex; gap: 10px; }
+        .main-input {
+            width: 100%; padding: 14px 20px;
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border);
+            border-radius: 16px; color: white; font-size: 1rem; text-align: right;
+            transition: 0.3s;
+        }
+        .main-input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); background: rgba(0,0,0,0.5); }
+        .add-btn {
+            background: var(--primary); color: white; border: none; border-radius: 16px;
+            width: 55px; font-size: 1.2rem; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+        .add-btn:active { transform: scale(0.95); }
+
+        /* --- NAMES LIST --- */
+        .names-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; min-height: 40px; }
+        .name-tag {
+            background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border);
+            padding: 6px 14px; border-radius: 50px; font-size: 0.85rem; color: #fff;
+            display: flex; align-items: center; gap: 8px;
+            animation: popIn 0.3s ease;
+        }
+        .name-tag i { color: var(--accent); cursor: pointer; }
+        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* --- SETTINGS ROW --- */
+        .settings-row {
+            display: flex; gap: 10px; margin-bottom: 20px;
+        }
+        .setting-box {
+            flex: 1;
+            background: rgba(0,0,0,0.2); padding: 10px; border-radius: 14px;
+            border: 1px solid var(--glass-border);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .setting-box label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px; }
+        .setting-box input {
+            width: 100%; background: transparent; border: none;
+            color: white; font-weight: bold; text-align: center; font-size: 1.2rem;
+        }
+
+        /* --- BUTTONS --- */
+        .btn {
+            width: 100%; padding: 16px; border: none; border-radius: 16px;
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            color: white; font-size: 1.1rem; font-weight: 700;
+            cursor: pointer; box-shadow: 0 10px 25px -5px var(--primary-glow);
+            transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; gap: 10px;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn.secondary { background: rgba(255,255,255,0.1); box-shadow: none; border: 1px solid var(--glass-border); margin-top: 10px; }
+        .btn.outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-muted); box-shadow: none; margin-top: 10px; }
+
+        /* --- CARD --- */
+        .card-container { perspective: 1200px; width: 100%; height: 320px; margin: 20px 0; position: relative; z-index: 20; }
+        .card {
+            width: 100%; height: 100%; position: relative; transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer;
+        }
+        .card.is-flipped { transform: rotateY(180deg); }
+        .card.disabled { pointer-events: none; }
+        
+        .card-face {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card-front { background: var(--card-front); }
+        .scan-anim {
+            width: 70px; height: 70px; border: 2px solid rgba(99, 102, 241, 0.5);
+            border-radius: 12px; position: relative; margin-bottom: 15px;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+            background: rgba(0,0,0,0.3);
+        }
+        .scan-anim i { font-size: 2.5rem; color: var(--primary); opacity: 0.8; }
+        .scan-line {
+            position: absolute; width: 100%; height: 2px; background: #a5b4fc;
+            box-shadow: 0 0 10px #a5b4fc; top: 0;
+            animation: scan 2s infinite;
+        }
+        @keyframes scan { 0%, 100% { top: 0; opacity: 0; } 10%, 90% { opacity: 1; } }
+
+        /* CARD BACK */
+        .card-back { background: var(--card-back-citizen); transform: rotateY(180deg); color: #1e293b; }
+        .role-title { font-size: 1.2rem; text-transform: uppercase; color: #64748b; font-weight: 700; }
+        .secret-word { font-size: 3rem; font-weight: 900; color: #334155; margin: 10px 0; }
+        .role-desc { font-size: 0.9rem; color: #64748b; padding: 0 10px; }
+
+        /* SPY MODE */
+        .card.spy-active .card-back { background: var(--card-back-spy); border: 2px solid var(--accent); }
+        .card.spy-active .card-back .role-title { color: var(--accent); }
+        .card.spy-active .card-back .secret-word { font-size: 5rem; animation: shake 3s infinite; }
+        @keyframes shake { 0%, 100% { transform: rotate(0deg); } 2% { transform: rotate(5deg); } 4% { transform: rotate(-5deg); } }
+
+        /* --- TIMER SCREEN --- */
+        .timer-display {
+            font-size: 5rem; font-weight: 900; color: white;
+            text-shadow: 0 0 30px var(--primary); margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .timer-anim { width: 150px; height: 150px; border: 5px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; margin: 0 auto; animation: spin 2s linear infinite; display: flex; align-items: center; justify-content: center; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- REVEAL SECTION --- */
+        .reveal-box {
+            background: rgba(244, 63, 94, 0.15); border: 1px solid var(--accent);
+            padding: 15px; border-radius: 15px; margin: 20px 0;
+        }
+        .imposter-tag {
+            background: var(--accent); color: white; padding: 5px 12px;
+            border-radius: 4px; font-weight: bold; margin: 5px; display: inline-block;
+        }
+
+        .badge { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 5px 15px; border-radius: 50px; font-size: 0.9rem; margin-bottom: 10px; display: inline-block; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .error { color: var(--accent); font-weight: bold; margin-bottom: 10px; font-size: 0.85rem; min-height: 20px; }
+
+        /* CONFETTI */
+        .confetti { position: absolute; width: 10px; height: 10px; background-color: #f00; animation: fall linear forwards; pointer-events: none; z-index: 100; }
+        @keyframes fall { to { opacity: 0; top: 110vh; transform: translateX(100px) rotate(720deg); } }
 
     </style>
 </head>
 <body>
 
-    <ul class="particles"><li></li><li></li><li></li><li></li><li></li></ul>
+    <div class="blobs"><div class="blob"></div><div class="blob"></div></div>
 
     <!-- 1. SETUP SCREEN -->
-    <div id="setup-screen" class="container">
+    <div id="setup-screen" class="container fade-in">
+        <i class="fas fa-mask" style="font-size: 3rem; color: var(--text-main); margin-bottom: 10px;"></i>
         <h1>یاری سیخوڕەکە</h1>
-        <p class="subtitle">ناوی یاریزانەکان بنووسە</p>
+        <p class="subtitle">Ultimate Edition</p>
 
         <div class="input-group">
-            <input type="text" id="name-input" class="main-input" placeholder="ناوی یاریزان..." onkeypress="handleEnter(event)">
+            <input type="text" id="name-input" class="main-input" placeholder="ناوی یاریزان..." onkeypress="handleEnter(event)" autocomplete="off">
             <button class="add-btn" onclick="addName()"><i class="fas fa-plus"></i></button>
         </div>
 
-        <div id="names-list" class="names-list">
-            <!-- Names appear here -->
-        </div>
+        <div id="names-list" class="names-list"></div>
 
-        <div class="info-bar">
-            <div>یاریزان: <span id="count-display">0</span></div>
-            <div class="spy-control">
-                <label>ژمارەی سیخوڕ:</label>
+        <div class="settings-row">
+            <div class="setting-box">
+                <label>سیخوڕ</label>
                 <input type="number" id="num-spies" value="1" min="1" max="5">
+            </div>
+            <div class="setting-box">
+                <label>کات (خولەک)</label>
+                <input type="number" id="game-timer" value="5" min="1" max="30">
             </div>
         </div>
 
         <div id="error-msg" class="error"></div>
 
         <button class="btn" onclick="startGame()">
-            دەستپێکردن <i class="fas fa-play"></i>
+            دەستپێکردن <i class="fas fa-arrow-left"></i>
         </button>
+
+        <div class="footer">Made by <b>Bawan</b></div>
     </div>
 
-    <!-- 2. GAME SCREEN -->
+    <!-- 2. GAME SCREEN (CARDS) -->
     <div id="game-screen" class="container hidden">
         <div class="badge" id="player-indicator">Unknown</div>
-        <h2 style="margin: 0 0 10px 0;">کلیک لە کارتەکە بکە</h2>
+        <h2 style="margin: 0; color: #fff;">ڕۆڵەکەت ببینە</h2>
         
         <div class="card-container">
             <div class="card" id="game-card" onclick="handleCardInteraction()">
                 <div class="card-face card-front">
-                    <i class="fas fa-fingerprint icon-large"></i>
-                    <h3>هەڵدانەوە</h3>
-                    <p style="opacity: 0.7; font-size: 0.8rem;">کلیک بکە بۆ بینینی ڕۆڵەکەت</p>
+                    <div class="scan-anim"><i class="fas fa-fingerprint"></i><div class="scan-line"></div></div>
+                    <p style="opacity: 0.7;">کلیک بکە</p>
                 </div>
                 <div class="card-face card-back">
-                    <div class="role-text" id="role-text">...</div>
-                    <div class="word-text" id="word-text">...</div>
-                    <p class="desc" id="role-desc">...</p>
+                    <div class="role-title" id="role-text">...</div>
+                    <div class="secret-word" id="word-text">...</div>
+                    <p class="role-desc" id="role-desc">...</p>
                 </div>
             </div>
         </div>
         
-        <p style="font-size: 0.9rem; color: #777; margin-top: 15px;">
-            دوای بینینی وشەکەت، دیسان کلیک بکە بۆ شاردنەوە و پێدانی مۆبایل بە یاریزانی دواتر
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 20px;">
+            دوای بینینی وشەکە، کلیک بکە بۆ شاردنەوەی
         </p>
+        <div class="footer">Made by <b>Bawan</b></div>
     </div>
 
-    <!-- 3. FINISH SCREEN -->
+    <!-- 3. TIMER SCREEN -->
+    <div id="timer-screen" class="container hidden">
+        <h2 style="color: #fff;">گفتوگۆ بکەن!</h2>
+        <p class="subtitle">سیخوڕەکە بدۆزنەوە</p>
+        
+        <div class="timer-anim">
+            <i class="fas fa-hourglass-half" style="font-size: 2rem; color:white;"></i>
+        </div>
+        
+        <div class="timer-display" id="timer-display">00:00</div>
+
+        <button class="btn" onclick="finishGame()">
+            تەواو بوونی کات <i class="fas fa-stopwatch"></i>
+        </button>
+        <div class="footer">Made by <b>Bawan</b></div>
+    </div>
+
+    <!-- 4. FINISH SCREEN -->
     <div id="end-screen" class="container hidden">
-        <i class="fas fa-check-circle" style="font-size: 4rem; color: #2ecc71; margin-bottom: 20px;"></i>
-        <h1>تەواو!</h1>
-        <p class="subtitle">هەموو یاریزانەکان ڕۆڵی خۆیان بینی.<br>ئێستا کاتی دۆزینەوەی سیخوڕەکەیە.</p>
+        <i class="fas fa-flag-checkered" style="font-size: 3rem; color: #2ecc71; margin-bottom: 10px;"></i>
+        <h1>کات تەواو!</h1>
+        
+        <div class="reveal-box">
+            <div style="font-size: 0.9rem; color: #a11; margin-bottom: 5px;">سیخوڕەکان:</div>
+            <div id="spies-reveal-list">
+                <!-- Spies go here -->
+            </div>
+        </div>
         
         <button class="btn" onclick="restartSamePlayers()">
-            دیسان یاری دەکەینەوە <i class="fas fa-redo"></i>
-            <span style="font-size: 0.7em; opacity: 0.8; display: block;">(هەمان ناوەکان)</span>
+            یاری نوێ (هەمان ناو) <i class="fas fa-redo"></i>
         </button>
 
         <button class="btn secondary" onclick="editPlayers()">
-            دەستکاری ناوەکان <i class="fas fa-users-cog"></i>
+            دەستکاری ناوەکان <i class="fas fa-user-edit"></i>
         </button>
 
         <button class="btn outline" onclick="resetGame()">
-            ڕیسێت (سەرەتا) <i class="fas fa-home"></i>
+            سەرەتا
         </button>
+        
+        <div class="footer">Made by <b>Bawan</b></div>
     </div>
 
     <script>
-        // --- DATA ---
-        const rawWords = `ئاو، ئاگر، خاک، با، ژیان، مرۆڤ، دڵ، چاو، دەست، سەر، پێ، ماڵ، شار، گوند، ڕێگا، ئاسمان، هەتاو، مانگ، ئەستێرە، شەو، ڕۆژ، بەهار، هاوین، پایز، زستان، باران، بەفر، هەور، ئازادی، خۆشەویستی، ژن، پیاو، منداڵ، باوک، دایک، برا، خوشک، هاوڕێ، دراوسێ، مامۆستا، قوتابی، کتێب، قەڵەم، زانکۆ، قوتابخانە، کار، پارە، بازاڕ، نان، ئاش، گۆشت، سەوزە، میوە، sێو، هەنار، هەنگوین، شیر، پەنیر، چا، خواردن، خواردنەوە، جل، پێڵاو، کڵاو، بەرگ، ڕەنگ، سپی، ڕەش، سوور، شین، زەرد، کەسک، مۆر، قاوەیی، پیرۆز، جوان، ناشرین، باش، خراپ، گەورە، بچووک، کۆن، نوێ، درێژ، کورت، قورس، سووک، گەرم، سارد، وشک، تەڕ، بەرز، نزم، دوور، نزیک، زۆر، کەم، هەموو، هیچ، ئێمە، ئێوە، ئەوان، من، تۆ، ئەو، ئەمڕۆ، دوێنێ، سبەی، ئێستا، دواتر، پێشتر، ژوور، دەرەوە، سەرەوە، خوارەوە، ناو، دەرەوە، لای ڕاست، لای چەپ، پێش، دوا، لەگەڵ، بێ، بۆ، لە، بە، و، یان، بەڵام، چونکە، ئەگەر، کە، چۆن، کەی، لەکوێ، بۆچی، کێ، چی، چەند، هەر، هەتا، زمان، کوردی، کوردستان، نیشتمان، وڵات، گەل، نەتەوە، مێژوو، کەلتوور، هونەر، گۆرانی، شیعر، چیرۆک، ڕۆمان، شانۆ، فیلم، مۆسیقا، وێنە، جەژن، ئاهەنگ، شادی، خەم، گریان، پێکەنین، ترس، ئازایەتی، هیوا، خەون، بیر، هزر، فەلسەفە، زانست، تەکنەلۆژیا، کۆمپیوتەر، مۆبایل، ئینتەرنێت، تۆڕی کۆمەڵایەتی، پەیوەندی، هاتوچۆ، ئۆتۆمبێل، فڕۆکە، پاس، شەمەندەفەر، سروشت، دارستان، چیا، دەشت، ڕووبار، دەریا، گوڵ، دار، گیا، گیاندار، باڵندە، ماسی، مار، مێروو، مێش، مێرولە، پشیلە، سەگ، مانگا، بزن، مەڕ، ئەسپ، فیل، شێر، گورگ، ڕێوی، کەروێشک، مشک، پەڕەسێلکە، کۆتر، هەڵۆ، قاز، مراوی، کەو، سیاسەت، حکومەت، پەرلەمان، یاسا، دادگا، پۆلیس، سەرباز، جەنگ، ئاشتی، سەربەخۆیی، دیموکراسی، مافی مرۆڤ، دادپەروەری، یەکسانی، ئابووری، بازرگانی، کشتوکاڵ، پیشەسازی، کانزا، نەوت، کارەبا، وزە، ئاو، تەندروستی، نەخۆشی، دەرمان، نەخۆشخانە، پزیشک، دکتۆر، دەرمانخانە، ورزش، تۆپی پێ، باسکە، تێنس، مەلەوانی، ڕاکردن، بازدان، هەڵگرتن، فڕین، ڕۆیشتن، هاتن، چوون، وەستان، دانیشتن، هەستان، خەوتن، خواردن، خواردنەوە، بینین، بیستن، هەست پێکردن، بۆن کردن، تام کردن، قسە کردن، نووسین، خوێندنەوە، فێربوون، بیرکردنەوە، خۆشەویستی، ڕق، ئیرەیی، شەرم، شانازی، بەختەوەری، ناخۆشی، ژیان، مردن، لەدایکبوون، گەشەکردن، پیربوون، تەمەن، ساڵ، مانگ، هەفتە، ڕۆژ، کاتژمێر، خولەک، چرکە، کات، شوێن، بۆشایی، جیهان، گەردوون، زەوی، ئاگر، ئاو، خاک، با، وزە، گەرما، ڕووناکی، تاریکی، دەنگ، بێدەنگی، جووڵە، وەستان، هێز، لاوازی، ژمارە، یەک، دوو، سێ، چوار، پێنج، شەش، حەوت، هەشت، نۆ، دە، سەد، هەزار، ملیۆن، ملیار`;
+        // --- WORD LIST ---
+        const rawWords = `ئاو، ئاگر، خاک، با، ژیان، مرۆڤ، دڵ، چاو، دەست، سەر، پێ، ماڵ، شار، گوند، ڕێگا، ئاسمان، هەتاو، مانگ، ئەستێرە، شەو، ڕۆژ، بەهار، هاوین، پایز، زستان، باران، بەفر، هەور، ئازادی، خۆشەویستی، ژن، پیاو، منداڵ، باوک، دایک، برا، خوشک، هاوڕێ، دراوسێ، مامۆستا، قوتابی، کتێب، قەڵەم، زانکۆ، قوتابخانە، کار، پارە، بازاڕ، نان، ئاش، گۆشت، سەوزە، میوە، سێو، هەنار، هەنگوین، شیر، پەنیر، چا، خواردن، خواردنەوە، جل، پێڵاو، کڵاو، بەرگ، ڕەنگ، سپی، ڕەش، سوور، شین، زەرد، کەسک، مۆر، قاوەیی، پیرۆز، جوان، ناشرین، باش، خراپ، گەورە، بچووک، کۆن، نوێ، درێژ، کورت، قورس، سووک، گەرم، سارد، وشک، تەڕ، بەرز، نزم، دوور، نزیک، زۆر، کەم، هەموو، هیچ، ئێمە، ئێوە، ئەوان، من، تۆ، ئەو، ئەمڕۆ، دوێنێ، سبەی، ئێستا، دواتر، پێشتر، ژوور، دەرەوە، سەرەوە، خوارەوە، ناو، دەرەوە، لای ڕاست، لای چەپ، پێش، دوا، لەگەڵ، بێ، بۆ، لە، بە، و، یان، بەڵام، چونکە، ئەگەر، کە، چۆن، کەی، لەکوێ، بۆچی، کێ، چی، چەند، هەر، هەتا، زمان، کوردی، کوردستان، نیشتمان، وڵات، گەل، نەتەوە، مێژوو، کەلتوور، هونەر، گۆرانی، شیعر، چیرۆک، ڕۆمان، شانۆ، فیلم، مۆسیقا، وێنە، جەژن، ئاهەنگ، شادی، خەم، گریان، پێکەنین، ترس، ئازایەتی، هیوا، خەون، بیر، هزر، فەلسەفە، زانست، تەکنەلۆژیا، کۆمپیوتەر، مۆبایل، ئینتەرنێت، تۆڕی کۆمەڵایەتی، پەیوەندی، هاتوچۆ، ئۆتۆمبێل، فڕۆکە، پاس، شەمەندەفەر، سروشت، دارستان، چیا، دەشت، ڕووبار، دەریا، گوڵ، دار، گیا، گیاندار، باڵندە، ماسی، مار، مێروو، مێش، مێرولە، پشیلە، سەگ، مانگا، بزن، مەڕ، ئەسپ، فیل، شێر، گورگ، ڕێوی، کەروێشک، مشک، پەڕەسێلکە، کۆتر، هەڵۆ، قاز، مراوی، کەو، سیاسەت، حکومەت، پەرلەمان، یاسا، دادگا، پۆلیس، سەرباز، جەنگ، ئاشتی، سەربەخۆیی، دیموکراسی، مافی مرۆڤ، دادپەروەری، یەکسانی، ئابووری، بازرگانی، کشتوکاڵ، پیشەسازی، کانزا، نەوت، کارەبا، وزە، ئاو، تەندروستی، نەخۆشی، دەرمان، نەخۆشخانە، پزیشک، دکتۆر، دەرمانخانە، ورزش، تۆپی پێ، باسکە، تێنس، مەلەوانی، ڕاکردن، بازدان، هەڵگرتن، فڕین، ڕۆیشتن، هاتن، چوون، وەستان، دانیشتن، هەستان، خەوتن، خواردن، خواردنەوە، بینین، بیستن، هەست پێکردن، بۆن کردن، تام کردن، قسە کردن، نووسین، خوێندنەوە، فێربوون، بیرکردنەوە، خۆشەویستی، ڕق، ئیرەیی، شەرم، شانازی، بەختەوەری، ناخۆشی، ژیان، مردن، لەدایکبوون، گەشەکردن، پیربوون، تەمەن، ساڵ، مانگ، هەفتە، ڕۆژ، کاتژمێر، خولەک، چرکە، کات، شوێن، بۆشایی، جیهان، گەردوون، زەوی`;
         const wordsList = rawWords.split('،').map(w => w.trim()).filter(w => w.length > 0);
 
         // --- STATE ---
-        let playerNames = []; // Stores the names entered
-        let gameSession = []; // Stores the shuffled players for the current round
+        let playerNames = [];
+        let gameSession = [];
         let currentIndex = 0;
         let isCardFlipped = false;
         let isProcessing = false;
+        let timerInterval = null;
 
-        // --- UI REFERENCES ---
+        // --- UI ---
         const screens = {
             setup: document.getElementById('setup-screen'),
             game: document.getElementById('game-screen'),
+            timer: document.getElementById('timer-screen'),
             end: document.getElementById('end-screen')
         };
         const ui = {
             input: document.getElementById('name-input'),
             list: document.getElementById('names-list'),
-            count: document.getElementById('count-display'),
             spies: document.getElementById('num-spies'),
+            timeInput: document.getElementById('game-timer'),
             error: document.getElementById('error-msg'),
             card: document.getElementById('game-card'),
             role: document.getElementById('role-text'),
             word: document.getElementById('word-text'),
             desc: document.getElementById('role-desc'),
-            badge: document.getElementById('player-indicator')
+            badge: document.getElementById('player-indicator'),
+            timerDisplay: document.getElementById('timer-display'),
+            revealList: document.getElementById('spies-reveal-list')
         };
 
-        // --- SETUP LOGIC ---
-
-        function handleEnter(e) {
-            if (e.key === 'Enter') addName();
-        }
+        // --- SETUP ---
+        function handleEnter(e) { if (e.key === 'Enter') addName(); }
 
         function addName() {
             const name = ui.input.value.trim();
-            if (name.length > 0) {
+            if (name.length > 0 && !playerNames.includes(name)) {
                 playerNames.push(name);
                 ui.input.value = '';
                 ui.input.focus();
@@ -231,72 +380,35 @@
         function renderNames() {
             ui.list.innerHTML = '';
             playerNames.forEach((name, index) => {
-                const tag = document.createElement('div');
-                tag.className = 'name-tag';
-                tag.innerHTML = `${name} <i class="fas fa-times" onclick="removeName(${index})"></i>`;
-                ui.list.appendChild(tag);
+                ui.list.innerHTML += `<div class="name-tag">${name} <i class="fas fa-times" onclick="removeName(${index})"></i></div>`;
             });
-            ui.count.textContent = playerNames.length;
         }
 
         // --- GAME LOGIC ---
-
         function startGame() {
             const numSpies = parseInt(ui.spies.value);
-            
-            // Validation
-            if (playerNames.length < 3) {
-                ui.error.textContent = "تکایە لانی کەم ناوی ٣ یاریزان بنووسە";
-                return;
-            }
-            if (numSpies >= playerNames.length) {
-                ui.error.textContent = "ژمارەی سیخوڕەکان دەبێت کەمتر بێت لە یاریزانەکان";
-                return;
-            }
+            if (playerNames.length < 3) return ui.error.textContent = "لانی کەم ناوی ٣ یاریزان بنووسە";
+            if (numSpies >= playerNames.length) return ui.error.textContent = "ژمارەی سیخوڕ زۆرە!";
 
-            // 1. Select random target word for citizens
-            const r = Math.floor(Math.random() * wordsList.length);
-            const targetWord = wordsList[r];
+            // Setup Data
+            const targetWord = wordsList[Math.floor(Math.random() * wordsList.length)];
+            let shuffledNames = [...playerNames].sort(() => Math.random() - 0.5);
+            let roles = Array(numSpies).fill('spy').concat(Array(playerNames.length - numSpies).fill('citizen')).sort(() => Math.random() - 0.5);
 
-            // 2. Clone and Shuffle Names (So order is random)
-            let shuffledNames = [...playerNames];
-            shuffledNames.sort(() => Math.random() - 0.5);
+            gameSession = shuffledNames.map((name, i) => ({
+                name: name,
+                role: roles[i],
+                word: roles[i] === 'spy' ? '😝' : targetWord
+            }));
 
-            // 3. Create Game Roles
-            gameSession = [];
-            
-            // Add Spies (First N people in shuffled list get spy role temporarily, we shuffle again later to be safe or just map logic)
-            // Actually easier: Create array of roles, shuffle roles, map to shuffled names
-            let roles = [];
-            for(let i=0; i<numSpies; i++) roles.push('spy');
-            for(let i=0; i<(playerNames.length - numSpies); i++) roles.push('citizen');
-            
-            roles.sort(() => Math.random() - 0.5); // Shuffle roles
-
-            // Map roles to the random order names
-            for(let i=0; i<shuffledNames.length; i++) {
-                if (roles[i] === 'spy') {
-                    gameSession.push({ name: shuffledNames[i], role: 'spy', word: '😝' });
-                } else {
-                    gameSession.push({ name: shuffledNames[i], role: 'citizen', word: targetWord });
-                }
-            }
-
-            // 4. Init Game State
             currentIndex = 0;
             isCardFlipped = false;
             isProcessing = false;
-            
-            // Reset Card UI
-            ui.card.className = 'card'; // removes flipped/spy classes
+            ui.card.className = 'card';
             resetCardText();
-
-            // Switch Screens
-            screens.setup.classList.add('hidden');
-            screens.end.classList.add('hidden');
-            screens.game.classList.remove('hidden');
-
             updateBadge();
+
+            switchScreen(screens.setup, screens.game);
         }
 
         function handleCardInteraction() {
@@ -305,43 +417,32 @@
             ui.card.classList.add('disabled');
 
             if (!isCardFlipped) {
-                // --- FLIP OPEN (SHOW ROLE) ---
+                // FLIP OPEN
                 const player = gameSession[currentIndex];
-                
                 ui.word.textContent = player.word;
-                
                 if (player.role === 'spy') {
-                    ui.role.textContent = "تۆ سیخوڕیت";
-                    ui.desc.textContent = "مەهێڵە کەس بزانێت! هەوڵبدە وشەکە بزانیت";
+                    ui.role.textContent = "سیخوڕ";
+                    ui.desc.textContent = "تۆ سیخوڕیت! مەهێڵە کەس بزانێت.";
                     ui.card.classList.add('spy-active');
                 } else {
                     ui.role.textContent = "هاوڵاتی";
-                    ui.desc.textContent = "ئەمە وشەی نهێنییە، بیپارێزە";
+                    ui.desc.textContent = "وشەکە بپارێزە.";
                     ui.card.classList.remove('spy-active');
                 }
-
                 ui.card.classList.add('is-flipped');
                 isCardFlipped = true;
-
-                setTimeout(() => {
-                    isProcessing = false;
-                    ui.card.classList.remove('disabled');
-                }, 600);
-
+                setTimeout(() => { isProcessing = false; ui.card.classList.remove('disabled'); }, 500);
             } else {
-                // --- FLIP CLOSE (PASS PHONE) ---
+                // FLIP CLOSE
                 ui.card.classList.remove('is-flipped');
                 isCardFlipped = false;
-
                 setTimeout(() => {
-                    // Reset Card Style
                     ui.card.classList.remove('spy-active');
                     resetCardText();
-                    
                     currentIndex++;
                     
                     if (currentIndex >= gameSession.length) {
-                        finishGame();
+                        startTimer(); // Go to timer instead of finish immediately
                     } else {
                         updateBadge();
                         isProcessing = false;
@@ -351,42 +452,77 @@
             }
         }
 
+        // --- TIMER LOGIC ---
+        function startTimer() {
+            switchScreen(screens.game, screens.timer);
+            
+            let minutes = parseInt(ui.timeInput.value) || 5;
+            let seconds = minutes * 60;
+            
+            updateTimerDisplay(seconds);
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                seconds--;
+                updateTimerDisplay(seconds);
+                
+                if (seconds <= 0) {
+                    clearInterval(timerInterval);
+                    navigator.vibrate?.([200, 100, 200]); // Vibrate if mobile supports it
+                    finishGame();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay(totalSeconds) {
+            if (totalSeconds < 0) totalSeconds = 0;
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            ui.timerDisplay.textContent = `${m}:${s}`;
+            
+            if (totalSeconds < 10) ui.timerDisplay.style.color = 'var(--accent)';
+            else ui.timerDisplay.style.color = 'white';
+        }
+
+        // --- FINISH ---
         function finishGame() {
-            screens.game.classList.add('hidden');
-            screens.end.classList.remove('hidden');
+            clearInterval(timerInterval);
+            
+            // Show Imposters
+            const spies = gameSession.filter(p => p.role === 'spy');
+            ui.revealList.innerHTML = spies.map(s => `<span class="imposter-tag">${s.name}</span>`).join('');
+
+            switchScreen(screens.timer, screens.end);
+            createConfetti();
         }
 
-        // --- POST GAME ACTIONS ---
-
-        // 1. Restart with same names (Shuffle logic happens inside startGame)
-        function restartSamePlayers() {
-            startGame();
+        // --- UTILS ---
+        function switchScreen(from, to) {
+            from.classList.add('hidden');
+            from.classList.remove('fade-in');
+            to.classList.remove('hidden');
+            to.classList.add('fade-in');
         }
 
-        // 2. Go back to setup but keep list
-        function editPlayers() {
-            screens.end.classList.add('hidden');
-            screens.setup.classList.remove('hidden');
-        }
-
-        // 3. Full wipe
+        function restartSamePlayers() { startGame(); }
+        function editPlayers() { switchScreen(screens.end, screens.setup); }
         function resetGame() {
             playerNames = [];
             renderNames();
-            ui.spies.value = 1;
-            screens.end.classList.add('hidden');
-            screens.setup.classList.remove('hidden');
+            switchScreen(screens.end, screens.setup);
         }
+        function resetCardText() { ui.role.textContent = "..."; ui.word.textContent = "..."; ui.desc.textContent = "..."; }
+        function updateBadge() { if(gameSession[currentIndex]) ui.badge.innerHTML = `<i class="fas fa-user"></i> ${gameSession[currentIndex].name}`; }
 
-        function resetCardText() {
-            ui.role.textContent = "...";
-            ui.word.textContent = "...";
-            ui.desc.textContent = "...";
-        }
-
-        function updateBadge() {
-            if(gameSession[currentIndex]) {
-                ui.badge.textContent = gameSession[currentIndex].name;
+        function createConfetti() {
+            for(let i=0; i<50; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti');
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.animationDuration = Math.random() * 2 + 3 + 's';
+                conf.style.backgroundColor = ['#f43f5e', '#6366f1', '#10b981', '#f59e0b'][Math.floor(Math.random()*4)];
+                document.body.appendChild(conf);
+                setTimeout(() => conf.remove(), 5000);
             }
         }
     </script>
