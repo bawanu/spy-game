@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spy Game - Bawan Nasih (Final Fix)</title>
+    
+    <!-- Modern Kurdish Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #4e54c8;
+            --secondary: #8f94fb;
+            --accent: #ff0055;
+            --spy-bg: #e74c3c;
+            --glass: rgba(255, 255, 255, 0.92);
+            --shadow: 0 10px 30px rgba(0,0,0,0.2);
+            --text-dark: #2d3436;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Vazirmatn', sans-serif;
+            user-select: none; /* Prevents text selection bugs */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- BACKGROUND PARTICLES --- */
+        .particles {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            overflow: hidden; z-index: 0;
+            pointer-events: none;
+        }
+        .particles li {
+            position: absolute; display: block; list-style: none;
+            width: 20px; height: 20px; background: rgba(255,255,255,0.15);
+            animation: rise 20s linear infinite; bottom: -150px; border-radius: 4px;
+        }
+        .particles li:nth-child(1){ left: 25%; width: 80px; height: 80px; animation-delay: 0s; }
+        .particles li:nth-child(2){ left: 10%; width: 20px; height: 20px; animation-delay: 2s; animation-duration: 12s; }
+        .particles li:nth-child(3){ left: 70%; width: 20px; height: 20px; animation-delay: 4s; }
+        .particles li:nth-child(4){ left: 40%; width: 60px; height: 60px; animation-delay: 0s; animation-duration: 18s; }
+        .particles li:nth-child(5){ left: 65%; width: 20px; height: 20px; animation-delay: 0s; }
+        
+        @keyframes rise {
+            0%{ transform: translateY(0) rotate(0deg); opacity: 1; }
+            100%{ transform: translateY(-1000px) rotate(720deg); opacity: 0; }
+        }
+
+        /* --- CONTAINER --- */
+        .container {
+            width: 90%;
+            max-width: 480px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 24px;
+            padding: 35px 25px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            z-index: 10;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        h1 {
+            color: var(--text-dark);
+            font-weight: 900;
+            margin: 0 0 5px 0;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 1rem;
+        }
+
+        /* --- INPUTS --- */
+        .input-wrapper {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 2px solid transparent;
+            transition: 0.3s;
+        }
+        .input-wrapper:focus-within {
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .input-wrapper label {
+            font-weight: 700; color: #555;
+        }
+        .input-wrapper input {
+            border: none; width: 70px; font-size: 1.4rem;
+            text-align: center; font-weight: bold; color: var(--primary);
+            background: transparent; outline: none;
+        }
+
+        /* --- BUTTONS --- */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #4e54c8, #8f94fb);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(78, 84, 200, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+        }
+        .btn:active { transform: scale(0.97); }
+
+        /* --- CARD --- */
+        .card-container {
+            perspective: 1000px;
+            width: 100%;
+            height: 320px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        /* Logic Styles */
+        .card.is-flipped { transform: rotateY(180deg); }
+        .card.disabled { pointer-events: none; opacity: 0.9; cursor: wait; }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* Front */
+        .card-front {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+        .icon-large { font-size: 4rem; margin-bottom: 15px; opacity: 0.9; }
+
+        /* Back */
+        .card-back {
+            background: white;
+            transform: rotateY(180deg);
+            color: #333;
+            border: 4px solid #1e3c72;
+        }
+
+        /* Spy Mode (Red) */
+        .card.spy-active .card-back {
+            background: var(--spy-bg);
+            border-color: #000;
+        }
+        .card.spy-active .card-back .role-text { color: black; opacity: 0.8; }
+        .card.spy-active .card-back .word-text { color: black; text-decoration: underline; }
+        .card.spy-active .card-back .desc { color: #222; font-weight: bold; }
+
+        /* Text */
+        .role-text { font-size: 1.5rem; letter-spacing: 1px; color: #888; text-transform: uppercase; font-weight: bold; }
+        .word-text { font-size: 3rem; font-weight: 900; color: #2a5298; margin: 15px 0; line-height: 1.1; }
+        .desc { font-size: 0.9rem; color: #888; }
+
+        /* --- UTILS --- */
+        .footer { margin-top: 25px; font-size: 0.8rem; color: #666; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .heart { color: var(--accent); animation: beat 1s infinite; }
+        @keyframes beat { 0%,100%{transform:scale(1);} 50%{transform:scale(1.3);} }
+        .hidden { display: none !important; }
+        .error { color: #e74c3c; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; min-height: 20px; }
+        .badge { background: #eee; padding: 5px 15px; border-radius: 50px; font-size: 0.85rem; color: #555; margin-bottom: 10px; display: inline-block; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <ul class="particles"><li></li><li></li><li></li><li></li><li></li></ul>
+
+    <!-- 1. SETUP -->
+    <div id="setup-screen" class="container">
+        <h1>یاری سیخوڕەکە</h1>
+        <p class="subtitle">ژمارەی یاریزان و سیخوڕەکان دیاری بکە</p>
+
+        <div class="input-wrapper">
+            <label><i class="fas fa-users"></i> ژمارەی یاریزان</label>
+            <input type="number" id="num-players" value="4" min="3">
+        </div>
+
+        <div class="input-wrapper">
+            <label><i class="fas fa-user-secret"></i> ژمارەی سیخوڕ</label>
+            <input type="number" id="num-spies" value="1" min="1">
+        </div>
+
+        <div id="error-msg" class="error"></div>
+
+        <button class="btn" onclick="startGame()">
+            دەستپێکردن <i class="fas fa-play"></i>
+        </button>
+
+        <div class="footer">Made by <b>Bawan Nasih</b> <i class="fas fa-heart heart"></i></div>
+    </div>
+
+    <!-- 2. GAME -->
+    <div id="game-screen" class="container hidden">
+        <div class="badge" id="player-indicator">یاریزان ١</div>
+        <h2 style="margin: 0 0 10px 0;">کلیک لە کارتەکە بکە</h2>
+        
+        <div class="card-container">
+            <div class="card" id="game-card" onclick="handleCardInteraction()">
+                <div class="card-face card-front">
+                    <i class="fas fa-fingerprint icon-large"></i>
+                    <h3>هەڵدانەوە</h3>
+                    <p style="opacity: 0.7; font-size: 0.8rem;">کلیک بکە بۆ بینینی ڕۆڵەکەت</p>
+                </div>
+                <div class="card-face card-back">
+                    <div class="role-text" id="role-text">...</div>
+                    <div class="word-text" id="word-text">...</div>
+                    <p class="desc" id="role-desc">...</p>
+                </div>
+            </div>
+        </div>
+        
+        <p style="font-size: 0.9rem; color: #777; margin-top: 15px;">
+            دوای بینینی وشەکەت، دیسان کلیک بکە بۆ شاردنەوە
+        </p>
+    </div>
+
+    <!-- 3. FINISH -->
+    <div id="end-screen" class="container hidden">
+        <i class="fas fa-check-circle" style="font-size: 4rem; color: #2ecc71; margin-bottom: 20px;"></i>
+        <h1>تەواو!</h1>
+        <p class="subtitle">هەموو یاریزانەکان ڕۆڵی خۆیان بینی.<br>ئێستا کاتی دۆزینەوەی سیخوڕەکەیە.</p>
+        
+        <button class="btn" onclick="resetGame()">
+            یاری نوێ <i class="fas fa-redo"></i>
+        </button>
+        
+        <div class="footer">Made by <b>Bawan Nasih</b> <i class="fas fa-heart heart"></i></div>
+    </div>
+
+    <script>
+        // WORD LIST
+        const rawWords = `ئاو، ئاگر، خاک، با، ژیان، مرۆڤ، دڵ، چاو، دەست، سەر، پێ، ماڵ، شار، گوند، ڕێگا، ئاسمان، هەتاو، مانگ، ئەستێرە، شەو، ڕۆژ، بەهار، هاوین، پایز، زستان، باران، بەفر، هەور، ئازادی، خۆشەویستی، ژن، پیاو، منداڵ، باوک، دایک، برا، خوشک، هاوڕێ، دراوسێ، مامۆستا، قوتابی، کتێب، قەڵەم، زانکۆ، قوتابخانە، کار، پارە، بازاڕ، نان، ئاش، گۆشت، سەوزە، میوە، سێو، هەنار، هەنگوین، شیر، پەنیر، چا، ئاو، خواردن، خواردنەوە، جل، پێڵاو، کڵاو، بەرگ، ڕەنگ، سپی، ڕەش، سوور، شین، زەرد، کەسک، مۆر، قاوەیی، پیرۆز، جوان، ناشرین، باش، خراپ، گەورە، بچووک، کۆن، نوێ، درێژ، کورت، قورس، سووک، گەرم، سارد، وشک، تەڕ، بەرز، نزم، دوور، نزیک، زۆر، کەم، هەموو، هیچ، ئێمە، ئێوە، ئەوان، من، تۆ، ئەو، ئەمڕۆ، دوێنێ، سبەی، ئێستا، دواتر، پێشتر، ژوور، دەرەوە، سەرەوە، خوارەوە، ناو، دەرەوە، لای ڕاست، لای چەپ، پێش، دوا، لەگەڵ، بێ، بۆ، لە، بە، و، یان، بەڵام، چونکە، ئەگەر، کە، چۆن، کەی، لەکوێ، بۆچی، کێ، چی، چەند، هەر، هەتا، زمان، کوردی، کوردستان، نیشتمان، وڵات، گەل، نەتەوە، مێژوو، کەلتوور، هونەر، گۆرانی، شیعر، چیرۆک، ڕۆمان، شانۆ، فیلم، مۆسیقا، وێنە، جەژن، ئاهەنگ، شادی، خەم، گریان، پێکەنین، ترس، ئازایەتی، هیوا، خەون، بیر، هزر، فەلسەفە، زانست، تەکنەلۆژیا، کۆمپیوتەر، مۆبایل، ئینتەرنێت، تۆڕی کۆمەڵایەتی، پەیوەندی، هاتوچۆ، ئۆتۆمبێل، فڕۆکە، پاس، شەمەندەفەر، سروشت، دارستان، چیا، دەشت، ڕووبار، دەریا، گوڵ، دار، گیا، گیاندار، باڵندە، ماسی، مار، مێروو، مێش، مێرولە، پشیلە، سەگ، مانگا، بزن، مەڕ، ئەسپ، فیل، شێر، گورگ، ڕێوی، کەروێشک، مشک، پەڕەسێلکە، کۆتر، هەڵۆ، قاز، مراوی، کەو، سیاسەت، حکومەت، پەرلەمان، یاسا، دادگا، پۆلیس، سەرباز، جەنگ، ئاشتی، سەربەخۆیی، دیموکراسی، مافی مرۆڤ، دادپەروەری، یەکسانی، ئابووری، بازرگانی، کشتوکاڵ، پیشەسازی، کانزا، نەوت، کارەبا، وزە، ئاو، تەندروستی، نەخۆشی، دەرمان، نەخۆشخانە، پزیشک، دکتۆر، دەرمانخانە، ورزش، تۆپی پێ، باسکە، تێنس، مەلەوانی، ڕاکردن، بازدان، هەڵگرتن، فڕین، ڕۆیشتن، هاتن، چوون، وەستان، دانیشتن، هەستان، خەوتن، خواردن، خواردنەوە، بینین، بیستن، هەست پێکردن، بۆن کردن، تام کردن، قسە کردن، نووسین، خوێندنەوە، فێربوون، بیرکردنەوە، خۆشەویستی، ڕق، ئیرەیی، شەرم، شانازی، بەختەوەری، ناخۆشی، ژیان، مردن، لەدایکبوون، گەشەکردن، پیربوون، تەمەن، ساڵ، مانگ، هەفتە، ڕۆژ، کاتژمێر، خولەک، چرکە، کات، شوێن، بۆشایی، جیهان، گەردوون، زەوی، ئاگر، ئاو، خاک، با، وزە، گەرما، ڕووناکی، تاریکی، دەنگ، بێدەنگی، جووڵە، وەستان، هێز، لاوازی، ژمارە، یەک، دوو، سێ، چوار، پێنج، شەش، حەوت، هەشت، نۆ، دە، سەد، هەزار، ملیۆن، ملیار`;
+        
+        const wordsList = rawWords.split('،').map(w => w.trim()).filter(w => w.length > 0);
+
+        // STATE
+        let players = [];
+        let currentIndex = 0;
+        let isCardFlipped = false;
+        let isProcessing = false;
+
+        // ELEMENTS
+        const screens = {
+            setup: document.getElementById('setup-screen'),
+            game: document.getElementById('game-screen'),
+            end: document.getElementById('end-screen')
+        };
+        const errorMsg = document.getElementById('error-msg');
+        const cardElement = document.getElementById('game-card');
+        const ui = {
+            role: document.getElementById('role-text'),
+            word: document.getElementById('word-text'),
+            desc: document.getElementById('role-desc'),
+            badge: document.getElementById('player-indicator')
+        };
+
+        function validateInputs() {
+            const numPlayers = parseInt(document.getElementById('num-players').value) || 0;
+            const numSpies = parseInt(document.getElementById('num-spies').value) || 0;
+            
+            if (numPlayers < 3) { errorMsg.textContent = "کەمترین ژمارەی یاریزان ٣ یە"; return false; }
+            if (numSpies < 1) { errorMsg.textContent = "لانی کەم ١ سیخوڕ دیاری بکە"; return false; }
+            if (numSpies >= numPlayers) { errorMsg.textContent = "سیخوڕ دەبێت کەمتر بێت لە یاریزان"; return false; }
+            
+            errorMsg.textContent = "";
+            return true;
+        }
+
+        function startGame() {
+            if (!validateInputs()) return;
+
+            // SYSTEM RESET (Fixes the freeze bug)
+            isProcessing = false;
+            isCardFlipped = false;
+            currentIndex = 0;
+            cardElement.classList.remove('is-flipped', 'spy-active', 'disabled'); // Force remove locks
+            
+            const numPlayers = parseInt(document.getElementById('num-players').value);
+            const numSpies = parseInt(document.getElementById('num-spies').value);
+
+            // Words
+            const r1 = Math.floor(Math.random() * wordsList.length);
+            let r2 = Math.floor(Math.random() * wordsList.length);
+            while (r1 === r2) r2 = Math.floor(Math.random() * wordsList.length);
+
+            // Players
+            players = [];
+            for (let i = 0; i < numSpies; i++) players.push({ type: 'spy', word: wordsList[r2] });
+            for (let i = 0; i < (numPlayers - numSpies); i++) players.push({ type: 'citizen', word: wordsList[r1] });
+            players.sort(() => Math.random() - 0.5);
+
+            // UI Switch
+            screens.setup.classList.add('hidden');
+            screens.game.classList.remove('hidden');
+            screens.end.classList.add('hidden');
+            
+            updateBadge();
+            resetCardText();
+        }
+
+        function handleCardInteraction() {
+            if (isProcessing) return; // Prevent double clicks
+            isProcessing = true;
+            cardElement.classList.add('disabled'); // Lock UI
+
+            if (!isCardFlipped) {
+                // FLIP OPEN
+                const p = players[currentIndex];
+                
+                // Set Data
+                ui.word.textContent = p.word || "Unknown";
+                if (p.type === 'spy') {
+                    ui.role.textContent = "سیخوڕ (SPY)";
+                    ui.desc.textContent = "تۆ سیخوڕی! مەهێڵە کەس بزانێت.";
+                    cardElement.classList.add('spy-active');
+                } else {
+                    ui.role.textContent = "هاوڵاتی";
+                    ui.desc.textContent = "ئەمە وشەی نهێنییە، بیپارێزە.";
+                    cardElement.classList.remove('spy-active');
+                }
+
+                cardElement.classList.add('is-flipped');
+                isCardFlipped = true;
+
+                setTimeout(() => {
+                    isProcessing = false;
+                    cardElement.classList.remove('disabled');
+                }, 600);
+
+            } else {
+                // FLIP CLOSE (Next Player)
+                cardElement.classList.remove('is-flipped');
+                isCardFlipped = false;
+
+                setTimeout(() => {
+                    // Clean up red background immediately after hiding
+                    cardElement.classList.remove('spy-active');
+                    resetCardText();
+                    
+                    currentIndex++;
+                    
+                    if (currentIndex >= players.length) {
+                        finishGame();
+                    } else {
+                        updateBadge();
+                        // Unlock for next player
+                        isProcessing = false;
+                        cardElement.classList.remove('disabled');
+                    }
+                }, 600);
+            }
+        }
+
+        function finishGame() {
+            // Important: We do NOT unlock 'isProcessing' here to prevent clicks during transition
+            screens.game.classList.add('hidden');
+            screens.end.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            screens.end.classList.add('hidden');
+            screens.setup.classList.remove('hidden');
+        }
+
+        function resetCardText() {
+            ui.role.textContent = "...";
+            ui.word.textContent = "...";
+            ui.desc.textContent = "...";
+        }
+
+        function updateBadge() {
+            ui.badge.textContent = `یاریزان ${currentIndex + 1} لە ${players.length}`;
+        }
+    </script>
+</body>
+</html>
