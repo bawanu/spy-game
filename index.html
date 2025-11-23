@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spy Game</title>
+    <title>Spy Game - Names Edition</title>
     
     <!-- Modern Kurdish Font -->
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap" rel="stylesheet">
-    
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -17,200 +16,84 @@
             --secondary: #8f94fb;
             --accent: #ff0055;
             --spy-bg: #e74c3c;
-            --glass: rgba(255, 255, 255, 0.92);
+            --glass: rgba(255, 255, 255, 0.95);
             --shadow: 0 10px 30px rgba(0,0,0,0.2);
             --text-dark: #2d3436;
         }
 
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            font-family: 'Vazirmatn', sans-serif;
-            user-select: none; /* Prevents text selection bugs */
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Vazirmatn', sans-serif; user-select: none; }
+        body { margin: 0; padding: 0; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
 
-        body {
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* --- BACKGROUND PARTICLES --- */
-        .particles {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            overflow: hidden; z-index: 0;
-            pointer-events: none;
-        }
-        .particles li {
-            position: absolute; display: block; list-style: none;
-            width: 20px; height: 20px; background: rgba(255,255,255,0.15);
-            animation: rise 20s linear infinite; bottom: -150px; border-radius: 4px;
-        }
+        /* BACKGROUND PARTICLES */
+        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; padding: 0; margin: 0; }
+        .particles li { position: absolute; display: block; list-style: none; width: 20px; height: 20px; background: rgba(255,255,255,0.15); animation: rise 20s linear infinite; bottom: -150px; border-radius: 4px; }
         .particles li:nth-child(1){ left: 25%; width: 80px; height: 80px; animation-delay: 0s; }
         .particles li:nth-child(2){ left: 10%; width: 20px; height: 20px; animation-delay: 2s; animation-duration: 12s; }
         .particles li:nth-child(3){ left: 70%; width: 20px; height: 20px; animation-delay: 4s; }
-        .particles li:nth-child(4){ left: 40%; width: 60px; height: 60px; animation-delay: 0s; animation-duration: 18s; }
-        .particles li:nth-child(5){ left: 65%; width: 20px; height: 20px; animation-delay: 0s; }
+        @keyframes rise { 0%{ transform: translateY(0) rotate(0deg); opacity: 1; } 100%{ transform: translateY(-1000px) rotate(720deg); opacity: 0; } }
+
+        /* CONTAINER */
+        .container { width: 90%; max-width: 480px; background: var(--glass); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-radius: 24px; padding: 30px 25px; box-shadow: var(--shadow); text-align: center; z-index: 10; position: relative; transition: all 0.3s ease; max-height: 90vh; overflow-y: auto; }
         
-        @keyframes rise {
-            0%{ transform: translateY(0) rotate(0deg); opacity: 1; }
-            100%{ transform: translateY(-1000px) rotate(720deg); opacity: 0; }
-        }
+        /* SCROLLBAR HIDDEN */
+        .container::-webkit-scrollbar { display: none; }
+        .container { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* --- CONTAINER --- */
-        .container {
-            width: 90%;
-            max-width: 480px;
-            background: var(--glass);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-radius: 24px;
-            padding: 35px 25px;
-            box-shadow: var(--shadow);
-            text-align: center;
-            z-index: 10;
-            position: relative;
-            transition: all 0.3s ease;
-        }
+        h1 { color: var(--text-dark); font-weight: 900; margin: 0 0 5px 0; font-size: 1.8rem; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 0.9rem; }
 
-        h1 {
-            color: var(--text-dark);
-            font-weight: 900;
-            margin: 0 0 5px 0;
-            font-size: 2rem;
-        }
+        /* INPUTS */
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .main-input { flex: 1; padding: 12px 15px; border: 2px solid #eee; border-radius: 12px; font-size: 1rem; outline: none; transition: 0.3s; text-align: right; }
+        .main-input:focus { border-color: var(--primary); background: #fff; }
+        
+        .add-btn { background: var(--primary); color: white; border: none; border-radius: 12px; width: 50px; cursor: pointer; font-size: 1.2rem; transition: 0.2s; }
+        .add-btn:active { transform: scale(0.9); }
 
-        .subtitle {
-            color: #666;
-            margin-bottom: 25px;
-            font-size: 1rem;
-        }
+        .names-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center; min-height: 40px; }
+        .name-tag { background: #eef0f7; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; color: #444; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .name-tag i { color: var(--accent); cursor: pointer; opacity: 0.6; transition: 0.2s; }
+        .name-tag i:hover { opacity: 1; transform: scale(1.2); }
 
-        /* --- INPUTS --- */
-        .input-wrapper {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 12px 20px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border: 2px solid transparent;
-            transition: 0.3s;
-        }
-        .input-wrapper:focus-within {
-            border-color: var(--primary);
-            background: #fff;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-        }
-        .input-wrapper label {
-            font-weight: 700; color: #555;
-        }
-        .input-wrapper input {
-            border: none; width: 70px; font-size: 1.4rem;
-            text-align: center; font-weight: bold; color: var(--primary);
-            background: transparent; outline: none;
-        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
 
-        /* --- BUTTONS --- */
-        .btn {
-            width: 100%;
-            padding: 16px;
-            border: none;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #4e54c8, #8f94fb);
-            color: white;
-            font-size: 1.1rem;
-            font-weight: 800;
-            cursor: pointer;
-            box-shadow: 0 8px 20px rgba(78, 84, 200, 0.3);
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex; justify-content: center; align-items: center; gap: 10px;
-        }
+        .info-bar { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 15px; border-radius: 12px; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold; color: #555; }
+        .spy-control { display: flex; align-items: center; gap: 10px; }
+        .spy-control input { width: 50px; border: 1px solid #ccc; border-radius: 8px; text-align: center; padding: 5px; font-weight: bold; color: var(--accent); }
+
+        /* BUTTONS */
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4e54c8, #8f94fb); color: white; font-size: 1.1rem; font-weight: 800; cursor: pointer; box-shadow: 0 8px 20px rgba(78, 84, 200, 0.3); transition: transform 0.2s; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 10px; }
         .btn:active { transform: scale(0.97); }
+        .btn.secondary { background: #f1f2f6; color: #444; box-shadow: none; }
+        .btn.outline { background: transparent; border: 2px solid #ddd; color: #666; box-shadow: none; }
 
-        /* --- CARD --- */
-        .card-container {
-            perspective: 1000px;
-            width: 100%;
-            height: 320px;
-            margin: 20px 0;
-            position: relative;
-        }
-
-        .card {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
-            border-radius: 20px;
-            cursor: pointer;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
-        }
-
-        /* Logic Styles */
+        /* CARD GAME */
+        .card-container { perspective: 1000px; width: 100%; height: 320px; margin: 20px 0; position: relative; }
+        .card { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); border-radius: 20px; cursor: pointer; box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
         .card.is-flipped { transform: rotateY(180deg); }
         .card.disabled { pointer-events: none; opacity: 0.9; cursor: wait; }
 
-        .card-face {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            border-radius: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        /* Front */
-        .card-front {
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            color: white;
-            border: 2px solid rgba(255,255,255,0.1);
-        }
+        .card-face { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .card-front { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; border: 2px solid rgba(255,255,255,0.1); }
         .icon-large { font-size: 4rem; margin-bottom: 15px; opacity: 0.9; }
-
-        /* Back */
-        .card-back {
-            background: white;
-            transform: rotateY(180deg);
-            color: #333;
-            border: 4px solid #1e3c72;
-        }
-
-        /* Spy Mode (Red) */
-        .card.spy-active .card-back {
-            background: var(--spy-bg);
-            border-color: #000;
-        }
+        
+        /* BACK CARD */
+        .card-back { background: white; transform: rotateY(180deg); color: #333; border: 4px solid #1e3c72; }
+        
+        /* SPY STYLE */
+        .card.spy-active .card-back { background: var(--spy-bg); border-color: #000; }
         .card.spy-active .card-back .role-text { color: black; opacity: 0.8; }
-        /*.card.spy-active .card-back .word-text { color: black; text-decoration: underline; }*/
+        .card.spy-active .card-back .word-text { font-size: 5rem; margin: 0; } 
         .card.spy-active .card-back .desc { color: #222; font-weight: bold; }
 
-        /* Text */
         .role-text { font-size: 1.5rem; letter-spacing: 1px; color: #888; text-transform: uppercase; font-weight: bold; }
-        .word-text { font-size: 3rem; font-weight: 900; color: #2a5298; margin: 15px 0; line-height: 1.1; }
+        .word-text { font-size: 2.8rem; font-weight: 900; color: #2a5298; margin: 15px 0; line-height: 1.1; }
         .desc { font-size: 0.9rem; color: #888; }
 
-        /* --- UTILS --- */
-        .footer { margin-top: 25px; font-size: 0.8rem; color: #666; display: flex; align-items: center; justify-content: center; gap: 5px; }
-        .heart { color: var(--accent); animation: beat 1s infinite; }
-        @keyframes beat { 0%,100%{transform:scale(1);} 50%{transform:scale(1.3);} }
+        /* UTILS */
         .hidden { display: none !important; }
-        .error { color: #e74c3c; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; min-height: 20px; }
-        .badge { background: #eee; padding: 5px 15px; border-radius: 50px; font-size: 0.85rem; color: #555; margin-bottom: 10px; display: inline-block; font-weight: bold; }
+        .error { color: #e74c3c; font-size: 0.85rem; margin-bottom: 10px; font-weight: bold; min-height: 18px; }
+        .badge { background: #eee; padding: 5px 15px; border-radius: 50px; font-size: 1rem; color: #333; margin-bottom: 10px; display: inline-block; font-weight: bold; border: 1px solid #ddd; }
 
     </style>
 </head>
@@ -218,41 +101,46 @@
 
     <ul class="particles"><li></li><li></li><li></li><li></li><li></li></ul>
 
-    <!-- 1. SETUP -->
+    <!-- 1. SETUP SCREEN -->
     <div id="setup-screen" class="container">
-        <h1>ÛØ§Ø±Û Ø³ÛØ®ÙÚÛÚ©Û</h1>
-        <p class="subtitle">ÚÙØ§Ø±ÛÛ ÛØ§Ø±ÛØ²Ø§Ù Ù Ø³ÛØ®ÙÚÛÚ©Ø§Ù Ø¯ÛØ§Ø±Û Ø¨Ú©Û</p>
+        <h1>یاری سیخوڕەکە</h1>
+        <p class="subtitle">ناوی یاریزانەکان بنووسە</p>
 
-        <div class="input-wrapper">
-            <label><i class="fas fa-users"></i> ÚÙØ§Ø±ÛÛ ÛØ§Ø±ÛØ²Ø§Ù</label>
-            <input type="number" id="num-players" value="4" min="3">
+        <div class="input-group">
+            <input type="text" id="name-input" class="main-input" placeholder="ناوی یاریزان..." onkeypress="handleEnter(event)">
+            <button class="add-btn" onclick="addName()"><i class="fas fa-plus"></i></button>
         </div>
 
-        <div class="input-wrapper">
-            <label><i class="fas fa-user-secret"></i> ÚÙØ§Ø±ÛÛ Ø³ÛØ®ÙÚ</label>
-            <input type="number" id="num-spies" value="1" min="1">
+        <div id="names-list" class="names-list">
+            <!-- Names appear here -->
+        </div>
+
+        <div class="info-bar">
+            <div>یاریزان: <span id="count-display">0</span></div>
+            <div class="spy-control">
+                <label>ژمارەی سیخوڕ:</label>
+                <input type="number" id="num-spies" value="1" min="1" max="5">
+            </div>
         </div>
 
         <div id="error-msg" class="error"></div>
 
         <button class="btn" onclick="startGame()">
-            Ø¯ÛØ³ØªÙ¾ÛÚ©Ø±Ø¯Ù <i class="fas fa-play"></i>
+            دەستپێکردن <i class="fas fa-play"></i>
         </button>
-
-        <div class="footer"><b>Bawan nasih</b> Made By</div>
     </div>
 
-    <!-- 2. GAME -->
+    <!-- 2. GAME SCREEN -->
     <div id="game-screen" class="container hidden">
-        <div class="badge" id="player-indicator">ÛØ§Ø±ÛØ²Ø§Ù Ù¡</div>
-        <h2 style="margin: 0 0 10px 0;">Ú©ÙÛÚ© ÙÛ Ú©Ø§Ø±ØªÛÚ©Û Ø¨Ú©Û</h2>
+        <div class="badge" id="player-indicator">Unknown</div>
+        <h2 style="margin: 0 0 10px 0;">کلیک لە کارتەکە بکە</h2>
         
         <div class="card-container">
             <div class="card" id="game-card" onclick="handleCardInteraction()">
                 <div class="card-face card-front">
                     <i class="fas fa-fingerprint icon-large"></i>
-                    <h3>ÙÛÚµØ¯Ø§ÙÛÙÛ</h3>
-                    <p style="opacity: 0.7; font-size: 0.8rem;">Ú©ÙÛÚ© Ø¨Ú©Û Ø¨Û Ø¨ÛÙÛÙÛ ÚÛÚµÛÚ©ÛØª</p>
+                    <h3>هەڵدانەوە</h3>
+                    <p style="opacity: 0.7; font-size: 0.8rem;">کلیک بکە بۆ بینینی ڕۆڵەکەت</p>
                 </div>
                 <div class="card-face card-back">
                     <div class="role-text" id="role-text">...</div>
@@ -263,155 +151,229 @@
         </div>
         
         <p style="font-size: 0.9rem; color: #777; margin-top: 15px;">
-            Ø¯ÙØ§Û Ø¨ÛÙÛÙÛ ÙØ´ÛÚ©ÛØªØ Ø¯ÛØ³Ø§Ù Ú©ÙÛÚ© Ø¨Ú©Û Ø¨Û Ø´Ø§Ø±Ø¯ÙÛÙÛ
+            دوای بینینی وشەکەت، دیسان کلیک بکە بۆ شاردنەوە و پێدانی مۆبایل بە یاریزانی دواتر
         </p>
     </div>
 
-    <!-- 3. FINISH -->
+    <!-- 3. FINISH SCREEN -->
     <div id="end-screen" class="container hidden">
         <i class="fas fa-check-circle" style="font-size: 4rem; color: #2ecc71; margin-bottom: 20px;"></i>
-        <h1>ØªÛÙØ§Ù!</h1>
-        <p class="subtitle">ÙÛÙÙÙ ÛØ§Ø±ÛØ²Ø§ÙÛÚ©Ø§Ù ÚÛÚµÛ Ø®ÛÛØ§Ù Ø¨ÛÙÛ.<br>Ø¦ÛØ³ØªØ§ Ú©Ø§ØªÛ Ø¯ÛØ²ÛÙÛÙÛÛ Ø³ÛØ®ÙÚÛÚ©ÛÛÛ.</p>
+        <h1>تەواو!</h1>
+        <p class="subtitle">هەموو یاریزانەکان ڕۆڵی خۆیان بینی.<br>ئێستا کاتی دۆزینەوەی سیخوڕەکەیە.</p>
         
-        <button class="btn" onclick="resetGame()">
-            ÛØ§Ø±Û ÙÙÛ <i class="fas fa-redo"></i>
+        <button class="btn" onclick="restartSamePlayers()">
+            دیسان یاری دەکەینەوە <i class="fas fa-redo"></i>
+            <span style="font-size: 0.7em; opacity: 0.8; display: block;">(هەمان ناوەکان)</span>
         </button>
-        
-        <div class="footer"> <b>Ø³ÙÙ¾Ø§Ø³ Ø¨Û Ø¨ÛÚ©Ø§Ø±ÙÛÙØ§ÙÛ ÛØ§Ø±ÛÛÚ©ÛÙ ÙÛÙØ§Ø¯Ø§Ø±Ù Ú©Ø§ØªÛÚ©Û Ù¾Ú ÙÛ ÚÛÚØªØ§Ù Ø¨ÛØ³ÛØ±Ø¨Ø±Ø¯Ø¨Û
-        </b> <i class="fas fa-heart heart"></i></div>
+
+        <button class="btn secondary" onclick="editPlayers()">
+            دەستکاری ناوەکان <i class="fas fa-users-cog"></i>
+        </button>
+
+        <button class="btn outline" onclick="resetGame()">
+            ڕیسێت (سەرەتا) <i class="fas fa-home"></i>
+        </button>
     </div>
 
     <script>
-        // WORD LIST
-        const rawWords = `Ø¦Ø§ÙØ Ø¦Ø§Ú¯Ø±Ø Ø®Ø§Ú©Ø Ø¨Ø§Ø ÚÛØ§ÙØ ÙØ±ÛÚ¤Ø Ø¯ÚµØ ÚØ§ÙØ Ø¯ÛØ³ØªØ Ø³ÛØ±Ø Ù¾ÛØ ÙØ§ÚµØ Ø´Ø§Ø±Ø Ú¯ÙÙØ¯Ø ÚÛÚ¯Ø§Ø Ø¦Ø§Ø³ÙØ§ÙØ ÙÛØªØ§ÙØ ÙØ§ÙÚ¯Ø Ø¦ÛØ³ØªÛØ±ÛØ Ø´ÛÙØ ÚÛÚØ Ø¨ÛÙØ§Ø±Ø ÙØ§ÙÛÙØ Ù¾Ø§ÛØ²Ø Ø²Ø³ØªØ§ÙØ Ø¨Ø§Ø±Ø§ÙØ Ø¨ÛÙØ±Ø ÙÛÙØ±Ø Ø¦Ø§Ø²Ø§Ø¯ÛØ Ø®ÛØ´ÛÙÛØ³ØªÛØ ÚÙØ Ù¾ÛØ§ÙØ ÙÙØ¯Ø§ÚµØ Ø¨Ø§ÙÚ©Ø Ø¯Ø§ÛÚ©Ø Ø¨Ø±Ø§Ø Ø®ÙØ´Ú©Ø ÙØ§ÙÚÛØ Ø¯Ø±Ø§ÙØ³ÛØ ÙØ§ÙÛØ³ØªØ§Ø ÙÙØªØ§Ø¨ÛØ Ú©ØªÛØ¨Ø ÙÛÚµÛÙØ Ø²Ø§ÙÚ©ÛØ ÙÙØªØ§Ø¨Ø®Ø§ÙÛØ Ú©Ø§Ø±Ø Ù¾Ø§Ø±ÛØ Ø¨Ø§Ø²Ø§ÚØ ÙØ§ÙØ Ø¦Ø§Ø´Ø Ú¯ÛØ´ØªØ Ø³ÛÙØ²ÛØ ÙÛÙÛØ Ø³ÛÙØ ÙÛÙØ§Ø±Ø ÙÛÙÚ¯ÙÛÙØ Ø´ÛØ±Ø Ù¾ÛÙÛØ±Ø ÚØ§Ø Ø¦Ø§ÙØ Ø®ÙØ§Ø±Ø¯ÙØ Ø®ÙØ§Ø±Ø¯ÙÛÙÛØ Ø¬ÙØ Ù¾ÛÚµØ§ÙØ Ú©ÚµØ§ÙØ Ø¨ÛØ±Ú¯Ø ÚÛÙÚ¯Ø Ø³Ù¾ÛØ ÚÛØ´Ø Ø³ÙÙØ±Ø Ø´ÛÙØ Ø²ÛØ±Ø¯Ø Ú©ÛØ³Ú©Ø ÙÛØ±Ø ÙØ§ÙÛÛÛØ Ù¾ÛØ±ÛØ²Ø Ø¬ÙØ§ÙØ ÙØ§Ø´Ø±ÛÙØ Ø¨Ø§Ø´Ø Ø®Ø±Ø§Ù¾Ø Ú¯ÛÙØ±ÛØ Ø¨ÚÙÙÚ©Ø Ú©ÛÙØ ÙÙÛØ Ø¯Ø±ÛÚØ Ú©ÙØ±ØªØ ÙÙØ±Ø³Ø Ø³ÙÙÚ©Ø Ú¯ÛØ±ÙØ Ø³Ø§Ø±Ø¯Ø ÙØ´Ú©Ø ØªÛÚØ Ø¨ÛØ±Ø²Ø ÙØ²ÙØ Ø¯ÙÙØ±Ø ÙØ²ÛÚ©Ø Ø²ÛØ±Ø Ú©ÛÙØ ÙÛÙÙÙØ ÙÛÚØ Ø¦ÛÙÛØ Ø¦ÛÙÛØ Ø¦ÛÙØ§ÙØ ÙÙØ ØªÛØ Ø¦ÛÙØ Ø¦ÛÙÚÛØ Ø¯ÙÛÙÛØ Ø³Ø¨ÛÛØ Ø¦ÛØ³ØªØ§Ø Ø¯ÙØ§ØªØ±Ø Ù¾ÛØ´ØªØ±Ø ÚÙÙØ±Ø Ø¯ÛØ±ÛÙÛØ Ø³ÛØ±ÛÙÛØ Ø®ÙØ§Ø±ÛÙÛØ ÙØ§ÙØ Ø¯ÛØ±ÛÙÛØ ÙØ§Û ÚØ§Ø³ØªØ ÙØ§Û ÚÛÙ¾Ø Ù¾ÛØ´Ø Ø¯ÙØ§Ø ÙÛÚ¯ÛÚµØ Ø¨ÛØ Ø¨ÛØ ÙÛØ Ø¨ÛØ ÙØ ÛØ§ÙØ Ø¨ÛÚµØ§ÙØ ÚÙÙÚ©ÛØ Ø¦ÛÚ¯ÛØ±Ø Ú©ÛØ ÚÛÙØ Ú©ÛÛØ ÙÛÚ©ÙÛØ Ø¨ÛÚÛØ Ú©ÛØ ÚÛØ ÚÛÙØ¯Ø ÙÛØ±Ø ÙÛØªØ§Ø Ø²ÙØ§ÙØ Ú©ÙØ±Ø¯ÛØ Ú©ÙØ±Ø¯Ø³ØªØ§ÙØ ÙÛØ´ØªÙØ§ÙØ ÙÚµØ§ØªØ Ú¯ÛÙØ ÙÛØªÛÙÛØ ÙÛÚÙÙØ Ú©ÛÙØªÙÙØ±Ø ÙÙÙÛØ±Ø Ú¯ÛØ±Ø§ÙÛØ Ø´ÛØ¹Ø±Ø ÚÛØ±ÛÚ©Ø ÚÛÙØ§ÙØ Ø´Ø§ÙÛØ ÙÛÙÙØ ÙÛØ³ÛÙØ§Ø ÙÛÙÛØ Ø¬ÛÚÙØ Ø¦Ø§ÙÛÙÚ¯Ø Ø´Ø§Ø¯ÛØ Ø®ÛÙØ Ú¯Ø±ÛØ§ÙØ Ù¾ÛÚ©ÛÙÛÙØ ØªØ±Ø³Ø Ø¦Ø§Ø²Ø§ÛÛØªÛØ ÙÛÙØ§Ø Ø®ÛÙÙØ Ø¨ÛØ±Ø ÙØ²Ø±Ø ÙÛÙØ³ÛÙÛØ Ø²Ø§ÙØ³ØªØ ØªÛÚ©ÙÛÙÛÚÛØ§Ø Ú©ÛÙÙ¾ÛÙØªÛØ±Ø ÙÛØ¨Ø§ÛÙØ Ø¦ÛÙØªÛØ±ÙÛØªØ ØªÛÚÛ Ú©ÛÙÛÚµØ§ÛÛØªÛØ Ù¾ÛÛÙÛÙØ¯ÛØ ÙØ§ØªÙÚÛØ Ø¦ÛØªÛÙØ¨ÛÙØ ÙÚÛÚ©ÛØ Ù¾Ø§Ø³Ø Ø´ÛÙÛÙØ¯ÛÙÛØ±Ø Ø³Ø±ÙØ´ØªØ Ø¯Ø§Ø±Ø³ØªØ§ÙØ ÚÛØ§Ø Ø¯ÛØ´ØªØ ÚÙÙØ¨Ø§Ø±Ø Ø¯ÛØ±ÛØ§Ø Ú¯ÙÚµØ Ø¯Ø§Ø±Ø Ú¯ÛØ§Ø Ú¯ÛØ§ÙØ¯Ø§Ø±Ø Ø¨Ø§ÚµÙØ¯ÛØ ÙØ§Ø³ÛØ ÙØ§Ø±Ø ÙÛØ±ÙÙØ ÙÛØ´Ø ÙÛØ±ÙÙÛØ Ù¾Ø´ÛÙÛØ Ø³ÛÚ¯Ø ÙØ§ÙÚ¯Ø§Ø Ø¨Ø²ÙØ ÙÛÚØ Ø¦ÛØ³Ù¾Ø ÙÛÙØ Ø´ÛØ±Ø Ú¯ÙØ±Ú¯Ø ÚÛÙÛØ Ú©ÛØ±ÙÛØ´Ú©Ø ÙØ´Ú©Ø Ù¾ÛÚÛØ³ÛÙÚ©ÛØ Ú©ÛØªØ±Ø ÙÛÚµÛØ ÙØ§Ø²Ø ÙØ±Ø§ÙÛØ Ú©ÛÙØ Ø³ÛØ§Ø³ÛØªØ Ø­Ú©ÙÙÛØªØ Ù¾ÛØ±ÙÛÙØ§ÙØ ÛØ§Ø³Ø§Ø Ø¯Ø§Ø¯Ú¯Ø§Ø Ù¾ÛÙÛØ³Ø Ø³ÛØ±Ø¨Ø§Ø²Ø Ø¬ÛÙÚ¯Ø Ø¦Ø§Ø´ØªÛØ Ø³ÛØ±Ø¨ÛØ®ÛÛÛØ Ø¯ÛÙÙÚ©Ø±Ø§Ø³ÛØ ÙØ§ÙÛ ÙØ±ÛÚ¤Ø Ø¯Ø§Ø¯Ù¾ÛØ±ÙÛØ±ÛØ ÛÛÚ©Ø³Ø§ÙÛØ Ø¦Ø§Ø¨ÙÙØ±ÛØ Ø¨Ø§Ø²Ø±Ú¯Ø§ÙÛØ Ú©Ø´ØªÙÚ©Ø§ÚµØ Ù¾ÛØ´ÛØ³Ø§Ø²ÛØ Ú©Ø§ÙØ²Ø§Ø ÙÛÙØªØ Ú©Ø§Ø±ÛØ¨Ø§Ø ÙØ²ÛØ Ø¦Ø§ÙØ ØªÛÙØ¯Ø±ÙØ³ØªÛØ ÙÛØ®ÛØ´ÛØ Ø¯ÛØ±ÙØ§ÙØ ÙÛØ®ÛØ´Ø®Ø§ÙÛØ Ù¾Ø²ÛØ´Ú©Ø Ø¯Ú©ØªÛØ±Ø Ø¯ÛØ±ÙØ§ÙØ®Ø§ÙÛØ ÙØ±Ø²Ø´Ø ØªÛÙ¾Û Ù¾ÛØ Ø¨Ø§Ø³Ú©ÛØ ØªÛÙØ³Ø ÙÛÙÛÙØ§ÙÛØ ÚØ§Ú©Ø±Ø¯ÙØ Ø¨Ø§Ø²Ø¯Ø§ÙØ ÙÛÚµÚ¯Ø±ØªÙØ ÙÚÛÙØ ÚÛÛØ´ØªÙØ ÙØ§ØªÙØ ÚÙÙÙØ ÙÛØ³ØªØ§ÙØ Ø¯Ø§ÙÛØ´ØªÙØ ÙÛØ³ØªØ§ÙØ Ø®ÛÙØªÙØ Ø®ÙØ§Ø±Ø¯ÙØ Ø®ÙØ§Ø±Ø¯ÙÛÙÛØ Ø¨ÛÙÛÙØ Ø¨ÛØ³ØªÙØ ÙÛØ³Øª Ù¾ÛÚ©Ø±Ø¯ÙØ Ø¨ÛÙ Ú©Ø±Ø¯ÙØ ØªØ§Ù Ú©Ø±Ø¯ÙØ ÙØ³Û Ú©Ø±Ø¯ÙØ ÙÙÙØ³ÛÙØ Ø®ÙÛÙØ¯ÙÛÙÛØ ÙÛØ±Ø¨ÙÙÙØ Ø¨ÛØ±Ú©Ø±Ø¯ÙÛÙÛØ Ø®ÛØ´ÛÙÛØ³ØªÛØ ÚÙØ Ø¦ÛØ±ÛÛÛØ Ø´ÛØ±ÙØ Ø´Ø§ÙØ§Ø²ÛØ Ø¨ÛØ®ØªÛÙÛØ±ÛØ ÙØ§Ø®ÛØ´ÛØ ÚÛØ§ÙØ ÙØ±Ø¯ÙØ ÙÛØ¯Ø§ÛÚ©Ø¨ÙÙÙØ Ú¯ÛØ´ÛÚ©Ø±Ø¯ÙØ Ù¾ÛØ±Ø¨ÙÙÙØ ØªÛÙÛÙØ Ø³Ø§ÚµØ ÙØ§ÙÚ¯Ø ÙÛÙØªÛØ ÚÛÚØ Ú©Ø§ØªÚÙÛØ±Ø Ø®ÙÙÛÚ©Ø ÚØ±Ú©ÛØ Ú©Ø§ØªØ Ø´ÙÛÙØ Ø¨ÛØ´Ø§ÛÛØ Ø¬ÛÙØ§ÙØ Ú¯ÛØ±Ø¯ÙÙÙØ Ø²ÛÙÛØ Ø¦Ø§Ú¯Ø±Ø Ø¦Ø§ÙØ Ø®Ø§Ú©Ø Ø¨Ø§Ø ÙØ²ÛØ Ú¯ÛØ±ÙØ§Ø ÚÙÙÙØ§Ú©ÛØ ØªØ§Ø±ÛÚ©ÛØ Ø¯ÛÙÚ¯Ø Ø¨ÛØ¯ÛÙÚ¯ÛØ Ø¬ÙÙÚµÛØ ÙÛØ³ØªØ§ÙØ ÙÛØ²Ø ÙØ§ÙØ§Ø²ÛØ ÚÙØ§Ø±ÛØ ÛÛÚ©Ø Ø¯ÙÙØ Ø³ÛØ ÚÙØ§Ø±Ø Ù¾ÛÙØ¬Ø Ø´ÛØ´Ø Ø­ÛÙØªØ ÙÛØ´ØªØ ÙÛØ Ø¯ÛØ Ø³ÛØ¯Ø ÙÛØ²Ø§Ø±Ø ÙÙÛÛÙØ ÙÙÛØ§Ø±`;
-        
-        const wordsList = rawWords.split('Ø').map(w => w.trim()).filter(w => w.length > 0);
+        // --- DATA ---
+        const rawWords = `ئاو، ئاگر، خاک، با، ژیان، مرۆڤ، دڵ، چاو، دەست، سەر، پێ، ماڵ، شار، گوند، ڕێگا، ئاسمان، هەتاو، مانگ، ئەستێرە، شەو، ڕۆژ، بەهار، هاوین، پایز، زستان، باران، بەفر، هەور، ئازادی، خۆشەویستی، ژن، پیاو، منداڵ، باوک، دایک، برا، خوشک، هاوڕێ، دراوسێ، مامۆستا، قوتابی، کتێب، قەڵەم، زانکۆ، قوتابخانە، کار، پارە، بازاڕ، نان، ئاش، گۆشت، سەوزە، میوە، sێو، هەنار، هەنگوین، شیر، پەنیر، چا، خواردن، خواردنەوە، جل، پێڵاو، کڵاو، بەرگ، ڕەنگ، سپی، ڕەش، سوور، شین، زەرد، کەسک، مۆر، قاوەیی، پیرۆز، جوان، ناشرین، باش، خراپ، گەورە، بچووک، کۆن، نوێ، درێژ، کورت، قورس، سووک، گەرم، سارد، وشک، تەڕ، بەرز، نزم، دوور، نزیک، زۆر، کەم، هەموو، هیچ، ئێمە، ئێوە، ئەوان، من، تۆ، ئەو، ئەمڕۆ، دوێنێ، سبەی، ئێستا، دواتر، پێشتر، ژوور، دەرەوە، سەرەوە، خوارەوە، ناو، دەرەوە، لای ڕاست، لای چەپ، پێش، دوا، لەگەڵ، بێ، بۆ، لە، بە، و، یان، بەڵام، چونکە، ئەگەر، کە، چۆن، کەی، لەکوێ، بۆچی، کێ، چی، چەند، هەر، هەتا، زمان، کوردی، کوردستان، نیشتمان، وڵات، گەل، نەتەوە، مێژوو، کەلتوور، هونەر، گۆرانی، شیعر، چیرۆک، ڕۆمان، شانۆ، فیلم، مۆسیقا، وێنە، جەژن، ئاهەنگ، شادی، خەم، گریان، پێکەنین، ترس، ئازایەتی، هیوا، خەون، بیر، هزر، فەلسەفە، زانست، تەکنەلۆژیا، کۆمپیوتەر، مۆبایل، ئینتەرنێت، تۆڕی کۆمەڵایەتی، پەیوەندی، هاتوچۆ، ئۆتۆمبێل، فڕۆکە، پاس، شەمەندەفەر، سروشت، دارستان، چیا، دەشت، ڕووبار، دەریا، گوڵ، دار، گیا، گیاندار، باڵندە، ماسی، مار، مێروو، مێش، مێرولە، پشیلە، سەگ، مانگا، بزن، مەڕ، ئەسپ، فیل، شێر، گورگ، ڕێوی، کەروێشک، مشک، پەڕەسێلکە، کۆتر، هەڵۆ، قاز، مراوی، کەو، سیاسەت، حکومەت، پەرلەمان، یاسا، دادگا، پۆلیس، سەرباز، جەنگ، ئاشتی، سەربەخۆیی، دیموکراسی، مافی مرۆڤ، دادپەروەری، یەکسانی، ئابووری، بازرگانی، کشتوکاڵ، پیشەسازی، کانزا، نەوت، کارەبا، وزە، ئاو، تەندروستی، نەخۆشی، دەرمان، نەخۆشخانە، پزیشک، دکتۆر، دەرمانخانە، ورزش، تۆپی پێ، باسکە، تێنس، مەلەوانی، ڕاکردن، بازدان، هەڵگرتن، فڕین، ڕۆیشتن، هاتن، چوون، وەستان، دانیشتن، هەستان، خەوتن، خواردن، خواردنەوە، بینین، بیستن، هەست پێکردن، بۆن کردن، تام کردن، قسە کردن، نووسین، خوێندنەوە، فێربوون، بیرکردنەوە، خۆشەویستی، ڕق، ئیرەیی، شەرم، شانازی، بەختەوەری، ناخۆشی، ژیان، مردن، لەدایکبوون، گەشەکردن، پیربوون، تەمەن، ساڵ، مانگ، هەفتە، ڕۆژ، کاتژمێر، خولەک، چرکە، کات، شوێن، بۆشایی، جیهان، گەردوون، زەوی، ئاگر، ئاو، خاک، با، وزە، گەرما، ڕووناکی، تاریکی، دەنگ، بێدەنگی، جووڵە، وەستان، هێز، لاوازی، ژمارە، یەک، دوو، سێ، چوار، پێنج، شەش، حەوت، هەشت، نۆ، دە، سەد، هەزار، ملیۆن، ملیار`;
+        const wordsList = rawWords.split('،').map(w => w.trim()).filter(w => w.length > 0);
 
-        // STATE
-        let players = [];
+        // --- STATE ---
+        let playerNames = []; // Stores the names entered
+        let gameSession = []; // Stores the shuffled players for the current round
         let currentIndex = 0;
         let isCardFlipped = false;
         let isProcessing = false;
 
-        // ELEMENTS
+        // --- UI REFERENCES ---
         const screens = {
             setup: document.getElementById('setup-screen'),
             game: document.getElementById('game-screen'),
             end: document.getElementById('end-screen')
         };
-        const errorMsg = document.getElementById('error-msg');
-        const cardElement = document.getElementById('game-card');
         const ui = {
+            input: document.getElementById('name-input'),
+            list: document.getElementById('names-list'),
+            count: document.getElementById('count-display'),
+            spies: document.getElementById('num-spies'),
+            error: document.getElementById('error-msg'),
+            card: document.getElementById('game-card'),
             role: document.getElementById('role-text'),
             word: document.getElementById('word-text'),
             desc: document.getElementById('role-desc'),
             badge: document.getElementById('player-indicator')
         };
 
-        function validateInputs() {
-            const numPlayers = parseInt(document.getElementById('num-players').value) || 0;
-            const numSpies = parseInt(document.getElementById('num-spies').value) || 0;
-            
-            if (numPlayers < 3) { errorMsg.textContent = "Ú©ÛÙØªØ±ÛÙ ÚÙØ§Ø±ÛÛ ÛØ§Ø±ÛØ²Ø§Ù Ù£ ÛÛ"; return false; }
-            if (numSpies < 1) { errorMsg.textContent = "ÙØ§ÙÛ Ú©ÛÙ Ù¡ Ø³ÛØ®ÙÚ Ø¯ÛØ§Ø±Û Ø¨Ú©Û"; return false; }
-            if (numSpies >= numPlayers) { errorMsg.textContent = "Ø³ÛØ®ÙÚ Ø¯ÛØ¨ÛØª Ú©ÛÙØªØ± Ø¨ÛØª ÙÛ ÛØ§Ø±ÛØ²Ø§Ù"; return false; }
-            
-            errorMsg.textContent = "";
-            return true;
+        // --- SETUP LOGIC ---
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') addName();
         }
 
+        function addName() {
+            const name = ui.input.value.trim();
+            if (name.length > 0) {
+                playerNames.push(name);
+                ui.input.value = '';
+                ui.input.focus();
+                renderNames();
+                ui.error.textContent = '';
+            }
+        }
+
+        function removeName(index) {
+            playerNames.splice(index, 1);
+            renderNames();
+        }
+
+        function renderNames() {
+            ui.list.innerHTML = '';
+            playerNames.forEach((name, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'name-tag';
+                tag.innerHTML = `${name} <i class="fas fa-times" onclick="removeName(${index})"></i>`;
+                ui.list.appendChild(tag);
+            });
+            ui.count.textContent = playerNames.length;
+        }
+
+        // --- GAME LOGIC ---
+
         function startGame() {
-            if (!validateInputs()) return;
+            const numSpies = parseInt(ui.spies.value);
+            
+            // Validation
+            if (playerNames.length < 3) {
+                ui.error.textContent = "تکایە لانی کەم ناوی ٣ یاریزان بنووسە";
+                return;
+            }
+            if (numSpies >= playerNames.length) {
+                ui.error.textContent = "ژمارەی سیخوڕەکان دەبێت کەمتر بێت لە یاریزانەکان";
+                return;
+            }
 
-            // SYSTEM RESET (Fixes the freeze bug)
-            isProcessing = false;
-            isCardFlipped = false;
+            // 1. Select random target word for citizens
+            const r = Math.floor(Math.random() * wordsList.length);
+            const targetWord = wordsList[r];
+
+            // 2. Clone and Shuffle Names (So order is random)
+            let shuffledNames = [...playerNames];
+            shuffledNames.sort(() => Math.random() - 0.5);
+
+            // 3. Create Game Roles
+            gameSession = [];
+            
+            // Add Spies (First N people in shuffled list get spy role temporarily, we shuffle again later to be safe or just map logic)
+            // Actually easier: Create array of roles, shuffle roles, map to shuffled names
+            let roles = [];
+            for(let i=0; i<numSpies; i++) roles.push('spy');
+            for(let i=0; i<(playerNames.length - numSpies); i++) roles.push('citizen');
+            
+            roles.sort(() => Math.random() - 0.5); // Shuffle roles
+
+            // Map roles to the random order names
+            for(let i=0; i<shuffledNames.length; i++) {
+                if (roles[i] === 'spy') {
+                    gameSession.push({ name: shuffledNames[i], role: 'spy', word: '😝' });
+                } else {
+                    gameSession.push({ name: shuffledNames[i], role: 'citizen', word: targetWord });
+                }
+            }
+
+            // 4. Init Game State
             currentIndex = 0;
-            cardElement.classList.remove('is-flipped', 'spy-active', 'disabled'); // Force remove locks
+            isCardFlipped = false;
+            isProcessing = false;
             
-            const numPlayers = parseInt(document.getElementById('num-players').value);
-            const numSpies = parseInt(document.getElementById('num-spies').value);
-
-            // Words
-            const r1 = Math.floor(Math.random() * wordsList.length);
-            let r2 = Math.floor(Math.random() * wordsList.length);
-            while (r1 === r2) r2 = Math.floor(Math.random() * wordsList.length);
-
-            // Players
-            players = [];
-            for (let i = 0; i < numSpies; i++) players.push({ type: 'spy'/*, word: wordsList[r2] */});
-            for (let i = 0; i < (numPlayers - numSpies); i++) players.push({ type: 'citizen', word: wordsList[r1] });
-            players.sort(() => Math.random() - 0.5);
-
-            // UI Switch
-            screens.setup.classList.add('hidden');
-            screens.game.classList.remove('hidden');
-            screens.end.classList.add('hidden');
-            
-            updateBadge();
+            // Reset Card UI
+            ui.card.className = 'card'; // removes flipped/spy classes
             resetCardText();
+
+            // Switch Screens
+            screens.setup.classList.add('hidden');
+            screens.end.classList.add('hidden');
+            screens.game.classList.remove('hidden');
+
+            updateBadge();
         }
 
         function handleCardInteraction() {
-            if (isProcessing) return; // Prevent double clicks
+            if (isProcessing) return;
             isProcessing = true;
-            cardElement.classList.add('disabled'); // Lock UI
+            ui.card.classList.add('disabled');
 
             if (!isCardFlipped) {
-                // FLIP OPEN
-                const p = players[currentIndex];
+                // --- FLIP OPEN (SHOW ROLE) ---
+                const player = gameSession[currentIndex];
                 
-                // Set Data
-                ui.word.textContent = p.word ||  "ð";
-                if (p.type === 'spy') {
-                    ui.role.textContent = "Ø³ÛØ®ÙÚ (SPY)";
-                    ui.desc.textContent = "ØªÛ Ø³ÛØ®ÙÚÛ! ÙÛÙÛÚµÛ Ú©ÛØ³ Ø¨Ø²Ø§ÙÛØª.";
-                    cardElement.classList.add('spy-active');
+                ui.word.textContent = player.word;
+                
+                if (player.role === 'spy') {
+                    ui.role.textContent = "تۆ سیخوڕیت";
+                    ui.desc.textContent = "مەهێڵە کەس بزانێت! هەوڵبدە وشەکە بزانیت";
+                    ui.card.classList.add('spy-active');
                 } else {
-                    ui.role.textContent = "ÙØ§ÙÚµØ§ØªÛ";
-                    ui.desc.textContent = "Ø¦ÛÙÛ ÙØ´ÛÛ ÙÙÛÙÛÛÛØ Ø¨ÛÙ¾Ø§Ø±ÛØ²Û.";
-                    cardElement.classList.remove('spy-active');
+                    ui.role.textContent = "هاوڵاتی";
+                    ui.desc.textContent = "ئەمە وشەی نهێنییە، بیپارێزە";
+                    ui.card.classList.remove('spy-active');
                 }
 
-                cardElement.classList.add('is-flipped');
+                ui.card.classList.add('is-flipped');
                 isCardFlipped = true;
 
                 setTimeout(() => {
                     isProcessing = false;
-                    cardElement.classList.remove('disabled');
+                    ui.card.classList.remove('disabled');
                 }, 600);
 
             } else {
-                // FLIP CLOSE (Next Player)
-                cardElement.classList.remove('is-flipped');
+                // --- FLIP CLOSE (PASS PHONE) ---
+                ui.card.classList.remove('is-flipped');
                 isCardFlipped = false;
 
                 setTimeout(() => {
-                    // Clean up red background immediately after hiding
-                    cardElement.classList.remove('spy-active');
+                    // Reset Card Style
+                    ui.card.classList.remove('spy-active');
                     resetCardText();
                     
                     currentIndex++;
                     
-                    if (currentIndex >= players.length) {
+                    if (currentIndex >= gameSession.length) {
                         finishGame();
                     } else {
                         updateBadge();
-                        // Unlock for next player
                         isProcessing = false;
-                        cardElement.classList.remove('disabled');
+                        ui.card.classList.remove('disabled');
                     }
                 }, 600);
             }
         }
 
         function finishGame() {
-            // Important: We do NOT unlock 'isProcessing' here to prevent clicks during transition
             screens.game.classList.add('hidden');
             screens.end.classList.remove('hidden');
         }
 
+        // --- POST GAME ACTIONS ---
+
+        // 1. Restart with same names (Shuffle logic happens inside startGame)
+        function restartSamePlayers() {
+            startGame();
+        }
+
+        // 2. Go back to setup but keep list
+        function editPlayers() {
+            screens.end.classList.add('hidden');
+            screens.setup.classList.remove('hidden');
+        }
+
+        // 3. Full wipe
         function resetGame() {
+            playerNames = [];
+            renderNames();
+            ui.spies.value = 1;
             screens.end.classList.add('hidden');
             screens.setup.classList.remove('hidden');
         }
@@ -423,7 +385,9 @@
         }
 
         function updateBadge() {
-            ui.badge.textContent = `ÛØ§Ø±ÛØ²Ø§Ù ${currentIndex + 1} ÙÛ ${players.length}`;
+            if(gameSession[currentIndex]) {
+                ui.badge.textContent = gameSession[currentIndex].name;
+            }
         }
     </script>
 </body>
