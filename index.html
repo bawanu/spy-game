@@ -203,6 +203,8 @@
         .results-card { background: rgba(255,255,255,0.05); width: 100%; border-radius: 16px; padding: 15px; margin: 20px 0; }
         .spy-reveal { display: flex; align-items: center; justify-content: space-between; background: rgba(244, 63, 94, 0.2); padding: 12px; border-radius: 10px; margin-top: 10px; border: 1px solid rgba(244, 63, 94, 0.5); }
         
+        .result-phase-container { width: 100%; display: flex; flex-direction: column; align-items: center; }
+
         /* --- FOOTER (FIXED) --- */
         .footer {
             width: 100%;
@@ -353,30 +355,47 @@
              </div>
 
              <button class="primary-btn" style="background: var(--accent);" onclick="endGame()">
-                تەواو بوونی کات <i class="fas fa-gavel"></i>
+                کۆتایی هێنان بە کات <i class="fas fa-gavel"></i>
             </button>
         </div>
 
         <!-- VIEW 5: RESULTS -->
         <div id="view-results" class="view">
-            <div class="scroll-content" style="align-items: stretch;">
-                <div style="text-align: center; margin-top: 20px;">
-                    <i class="fas fa-flag-checkered" style="font-size: 3rem; color: var(--success);"></i>
-                    <h1>ئەنجامەکان</h1>
+            <div class="scroll-content" style="align-items: stretch; justify-content: center;">
+                
+                <!-- Phase 1: Pre Reveal (Button) -->
+                <div id="phase-pre-reveal" class="result-phase-container">
+                    <div style="text-align: center; margin-bottom: 30px; animation: bounceIn 0.5s;">
+                        <i class="fas fa-mask" style="font-size: 5rem; color: var(--text-muted); margin-bottom: 20px;"></i>
+                        <h2 style="font-size: 1.8rem;">کاتی دەنگدان</h2>
+                        <p class="subtitle">سیخوڕەکە بدۆزنەوە پێش ئەوەی ئاشکرای بکەیت</p>
+                    </div>
+                    <button class="primary-btn" onclick="revealEverything()">
+                        سیخوڕەکە کێیە؟ <i class="fas fa-search"></i>
+                    </button>
                 </div>
 
-                <div class="results-card">
-                    <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">وشەکە ئەمە بوو:</div>
-                    <div id="result-word" style="font-size: 1.8rem; font-weight: 900; color: var(--primary); text-align: center; margin-bottom: 20px; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px;">-</div>
+                <!-- Phase 2: Post Reveal (Content) -->
+                <div id="phase-post-reveal" class="result-phase-container" style="display: none;">
+                    <div style="text-align: center; margin-top: 20px;">
+                        <i class="fas fa-flag-checkered" style="font-size: 3rem; color: var(--success);"></i>
+                        <h1>ئەنجامەکان</h1>
+                    </div>
 
-                    <div style="font-size: 0.9rem; color: var(--accent); font-weight: bold;">سیخوڕەکان:</div>
-                    <div id="spies-list"></div>
+                    <div class="results-card">
+                        <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">وشەکە ئەمە بوو:</div>
+                        <div id="result-word" style="font-size: 1.8rem; font-weight: 900; color: var(--primary); text-align: center; margin-bottom: 20px; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px;">-</div>
+
+                        <div style="font-size: 0.9rem; color: var(--accent); font-weight: bold;">سیخوڕەکان:</div>
+                        <div id="spies-list"></div>
+                    </div>
+
+                    <button class="primary-btn" onclick="goToSetup()">
+                        یاری نوێ <i class="fas fa-redo"></i>
+                    </button>
                 </div>
+
             </div>
-
-            <button class="primary-btn" onclick="goToSetup()">
-                یاری نوێ <i class="fas fa-redo"></i>
-            </button>
         </div>
     </div>
 
@@ -786,24 +805,41 @@
             playSfx('click');
         }
 
-        // --- END GAME ---
+        // --- END GAME & RESULTS LOGIC ---
         function endGame() {
             clearInterval(state.timerInt);
             
-            // Fix: Wrap audio and effects in try/catch to prevent button failure
+            // Play initial alarm
             try {
                 playSfx('alarm');
                 if(navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
             } catch(e) { console.log("Audio/Vibrate Error", e); }
             
+            // Show the "Pre-Reveal" phase (Button Only)
+            $('phase-pre-reveal').style.display = 'flex';
+            $('phase-post-reveal').style.display = 'none';
+
+            transitionTo('view-results');
+        }
+
+        function revealEverything() {
+            // Play victory/reveal sound
+            playSfx('victory');
+
+            // Populate Data
             $('result-word').innerText = state.currentWord || "Error";
             
             const spies = state.assignments.filter(a => a.role === 'spy');
             $('spies-list').innerHTML = spies.map(s => 
                 `<div class="spy-reveal"><span style="font-weight:bold; color:white">${s.name}</span> <i class="fas fa-user-secret"></i></div>`
             ).join('');
+
+            // Toggle Views
+            $('phase-pre-reveal').style.display = 'none';
+            $('phase-post-reveal').style.display = 'flex';
             
-            transitionTo('view-results');
+            // Add animation class
+            $('phase-post-reveal').classList.add('active');
         }
 
         function goToSetup() {
