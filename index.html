@@ -90,15 +90,29 @@
 
         /* Topic Selector */
         .section-title { width: 100%; text-align: right; font-size: 0.9rem; color: var(--text-muted); margin: 10px 0; font-weight: 700; }
-        .topics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-bottom: 20px; }
+        .topics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-bottom: 10px; }
         .topic-card {
             background: var(--glass); border: 1px solid var(--glass-border); padding: 15px; border-radius: 16px;
             text-align: center; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden;
         }
         .topic-card i { display: block; font-size: 1.5rem; margin-bottom: 5px; color: var(--text-muted); transition: 0.3s; }
-        .topic-card.selected { background: rgba(99, 102, 241, 0.2); border-color: var(--primary); }
+        /* Selected State */
+        .topic-card.selected { background: rgba(99, 102, 241, 0.2); border-color: var(--primary); box-shadow: inset 0 0 10px rgba(99, 102, 241, 0.2); }
+        .topic-card.selected::after { content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: 5px; right: 8px; font-size: 0.8rem; color: var(--primary); }
         .topic-card.selected i { color: var(--primary); transform: scale(1.1); }
         .topic-name { font-size: 0.9rem; font-weight: 500; }
+
+        /* Custom Input Area */
+        #custom-words-container { 
+            width: 100%; margin-bottom: 20px; display: none; animation: slideDown 0.3s forwards; 
+            background: rgba(0,0,0,0.2); padding: 15px; border-radius: 16px; border: 1px dashed var(--glass-border);
+        }
+        #custom-words-input {
+            width: 100%; min-height: 80px; background: transparent; color: white; border: none; 
+            resize: vertical; font-size: 0.9rem; line-height: 1.5; outline: none;
+        }
+        #custom-words-input::placeholder { color: rgba(255,255,255,0.3); }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Settings */
         .control-row { display: flex; justify-content: space-between; width: 100%; align-items: center; background: var(--glass); padding: 15px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 10px; }
@@ -117,13 +131,14 @@
             font-size: 1.1rem; font-weight: 700;
             box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5);
             cursor: pointer; 
-            margin-top: 5px; /* Reduced margin */
+            margin-top: 5px; 
             z-index: 100;
             position: relative; overflow: hidden; transition: 0.2s;
             display: flex; justify-content: center; align-items: center; gap: 10px;
             flex-shrink: 0;
         }
         .primary-btn:active { transform: scale(0.98); box-shadow: 0 5px 15px -5px rgba(99, 102, 241, 0.5); }
+        .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
         
         /* --- GAME CARD 3D --- */
         .card-wrapper { perspective: 1500px; width: 100%; max-width: 320px; height: 420px; margin: 20px 0; }
@@ -142,12 +157,19 @@
         .fingerprint { font-size: 4rem; color: rgba(255,255,255,0.1); margin-bottom: 20px; animation: pulse 2s infinite; }
         .tap-text { color: rgba(255,255,255,0.6); font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; }
         
-        .face-back { transform: rotateY(180deg); background: white; color: #1e293b; }
+        .face-back { transform: rotateY(180deg); background: white; color: #1e293b; padding: 20px; }
         .role-badge { background: #1e293b; color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
-        .secret-word { font-size: 2.5rem; font-weight: 900; color: #1e293b; line-height: 1.2; margin: 15px 0; word-break: break-word; padding: 0 15px;}
-        .face-back.spy-mode { background: #111; color: #fff; border: 2px solid var(--accent); }
-        .face-back.spy-mode .secret-word { color: var(--accent); font-family: monospace; letter-spacing: -1px; }
-        .face-back.spy-mode .role-badge { background: var(--accent); }
+        .secret-word { font-size: 2.2rem; font-weight: 900; color: #1e293b; line-height: 1.2; margin: 15px 0; word-break: break-word; }
+        
+        /* SPY MODE STYLES */
+        .face-back.spy-mode { background: #111; color: #fff; border: 3px solid var(--accent); }
+        .face-back.spy-mode .role-badge { background: var(--accent); color: #fff; }
+        .face-back.spy-mode .secret-word { 
+            color: var(--accent); 
+            font-size: 3.2rem; /* BIGGER FONT */
+            text-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+            margin: 30px 0;
+        }
 
         @keyframes pulse { 0%,100% { transform: scale(1); opacity: 0.2; } 50% { transform: scale(1.1); opacity: 0.5; } }
 
@@ -214,9 +236,16 @@
                 <p class="subtitle">کاتی دۆزینەوەی نهێنیەکانە...</p>
 
                 <!-- Topics -->
-                <div class="section-title">بابەت هەڵبژێرە:</div>
+                <div class="section-title">بابەت هەڵبژێرە (زیاتر لە یەک دانە ئاساییە):</div>
                 <div class="topics-grid" id="topics-container">
                     <!-- Populated by JS -->
+                </div>
+                
+                <!-- Custom Input (Hidden by default) -->
+                <div id="custom-words-container">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; font-weight: bold;">وشە تایبەتەکانت بنووسە:</div>
+                    <textarea id="custom-words-input" placeholder="نموونە: تۆپی پێ، باڵە، مەلەوانی... &#10;یان بە ENTER جیایان بکەوە"></textarea>
+                    <div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); text-align: left; margin-top:5px;">بە کۆما یان دێڕ جیایان بکەرەوە</div>
                 </div>
 
                 <!-- Inputs -->
@@ -254,11 +283,10 @@
                 </div>
             </div>
 
-            <button class="primary-btn" onclick="initGame()">
+            <button class="primary-btn" id="start-btn" onclick="initGame()">
                 دەستپێکردن <i class="fas fa-arrow-left"></i>
             </button>
             
-            <!-- FOOTER IS NOW HERE -->
             <div class="footer">Made by <b>Bawan</b></div>
         </div>
 
@@ -287,7 +315,7 @@
                         <div class="card-face face-back" id="card-back">
                             <div class="role-badge" id="card-role">...</div>
                             <div class="secret-word" id="card-word">...</div>
-                            <p id="card-desc" style="color:inherit; opacity: 0.7; font-size:0.9rem; margin-top: 10px; padding: 0 20px;">...</p>
+                            <p id="card-desc" style="color:inherit; opacity: 0.7; font-size:0.9rem; margin-top: 10px; padding: 0 10px;">...</p>
                             <div style="position:absolute; bottom:20px; opacity:0.4; font-size: 0.75rem;">دووبارە کلیک بکە بۆ شاردنەوە</div>
                         </div>
                     </div>
@@ -385,7 +413,6 @@
     <script>
         // --- DATA: WORD CATEGORIES ---
         const CATEGORIES = {
-            "mixed": { label: "تێکەڵ", icon: "fa-random", words: [] },
             "places": { 
                 label: "شوێن", 
                 icon: "fa-map-marker-alt", 
@@ -438,25 +465,25 @@
                     "سەرباز", "ئاگرکوژێنەوە", "پەرستار", "دکتۆری ددان", "فیتەر", "کارەباچی", "شوان", 
                     "ماسیگر", "پۆستەچی", "وێنەگر", "خەیات", "دارتاش", "کەشتیوان", "دادوەر", "ڕۆژنامەنووس"
                 ] 
+            },
+            "custom": {
+                label: "تایبەت",
+                icon: "fa-pen-fancy",
+                words: [] // Placeholder
             }
         };
-
-        // Fill Mixed
-        Object.keys(CATEGORIES).forEach(key => {
-            if(key !== 'mixed') CATEGORIES.mixed.words.push(...CATEGORIES[key].words);
-        });
 
         // --- STATE MANAGEMENT ---
         const state = {
             players: [],
             numSpies: 1,
             gameTime: 5, // minutes
-            selectedCat: 'mixed',
+            selectedCats: new Set([]), // Multi-select Set
             isSoundOn: true,
             
             // Game Session
             currentWord: '',
-            assignments: [], // [{name: 'Ali', role: 'spy'}, ...]
+            assignments: [],
             cardIndex: 0,
             timerRunning: false,
             timeLeft: 0,
@@ -479,18 +506,35 @@
             grid.innerHTML = '';
             for (const [key, cat] of Object.entries(CATEGORIES)) {
                 const div = document.createElement('div');
-                div.className = `topic-card ${state.selectedCat === key ? 'selected' : ''}`;
+                div.className = `topic-card`;
                 div.innerHTML = `<i class="fas ${cat.icon}"></i><div class="topic-name">${cat.label}</div>`;
-                div.onclick = () => selectTopic(key, div);
+                div.onclick = () => toggleTopic(key, div);
                 grid.appendChild(div);
             }
         };
         setupGrid();
 
-        function selectTopic(key, el) {
-            state.selectedCat = key;
-            document.querySelectorAll('.topic-card').forEach(c => c.classList.remove('selected'));
-            el.classList.add('selected');
+        function toggleTopic(key, el) {
+            if (state.selectedCats.has(key)) {
+                state.selectedCats.delete(key);
+                el.classList.remove('selected');
+            } else {
+                state.selectedCats.add(key);
+                el.classList.add('selected');
+            }
+            
+            // Toggle Custom Input visibility
+            if (key === 'custom') {
+                const container = $('custom-words-container');
+                if (state.selectedCats.has('custom')) {
+                    container.style.display = 'block';
+                    // Optional: scroll to it
+                    setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+
             playSfx('click');
             if(navigator.vibrate) navigator.vibrate(10);
         }
@@ -551,6 +595,11 @@
                 alert("لانی کەم دەبێت ٣ یاریزان هەبن");
                 return;
             }
+
+            if (state.selectedCats.size === 0) {
+                alert("تکایە لانی کەم بابەتێک هەڵبژێرە");
+                return;
+            }
             
             // Ensure audio context is ready on user gesture
             if(audioCtx.state === 'suspended') {
@@ -559,9 +608,33 @@
 
             state.numSpies = parseInt($('spy-count').innerText);
             
-            // 1. Pick Word
-            const catWords = CATEGORIES[state.selectedCat].words;
-            state.currentWord = catWords[Math.floor(Math.random() * catWords.length)];
+            // 1. Combine Words from Selected Categories
+            let pool = [];
+            
+            state.selectedCats.forEach(catKey => {
+                if(catKey === 'custom') {
+                    // PARSE CUSTOM WORDS
+                    const rawText = $('custom-words-input').value;
+                    const customWords = rawText.split(/[\n,،]+/).map(w => w.trim()).filter(w => w.length > 0);
+                    if(customWords.length > 0) {
+                        pool = pool.concat(customWords);
+                    }
+                } else if(CATEGORIES[catKey]) {
+                    pool = pool.concat(CATEGORIES[catKey].words);
+                }
+            });
+
+            if(pool.length === 0) {
+                 if(state.selectedCats.has('custom')) {
+                    alert("تکایە وشەی تایبەت بنووسە یان بابەتێکی تر هەڵبژێرە");
+                 } else {
+                    alert("هەڵەیەک ڕوویدا لە دۆزینەوەی وشەکان");
+                 }
+                 return;
+            }
+
+            // Pick Word
+            state.currentWord = pool[Math.floor(Math.random() * pool.length)];
 
             // 2. Assign Roles
             let roles = Array(state.numSpies).fill('spy').concat(
@@ -603,12 +676,20 @@
                 
                 // Prepare Card Content (Hidden Side)
                 const isSpy = player.role === 'spy';
-                $('card-back').className = `card-face face-back ${isSpy ? 'spy-mode' : ''}`;
-                $('card-role').innerText = isSpy ? "تۆ سیخوڕیت!" : "تۆ هاوڵاتییت";
-                $('card-word').innerText = isSpy ? "????" : state.currentWord;
-                $('card-desc').innerText = isSpy 
-                    ? "خۆت وەکو هاوڵاتی دەربخە. هەوڵبدە لە قسەی ئەوانی ترەوە وشەکە بزانیت." 
-                    : "سیخوڕەکە لە ناوتاندایە. وریا بە لە کاتی پرسیارکردن.";
+                
+                // Toggle CSS class for Spy Mode
+                if (isSpy) {
+                    $('card-back').className = `card-face face-back spy-mode`;
+                    $('card-role').innerText = "نـهێـنـی"; // Top badge says "Secret" instead of Role
+                    $('card-word').innerText = "تۆ سیخوڕیت!"; // BIG TEXT REPLACING ????
+                    $('card-desc').innerText = "خۆت وەکو هاوڵاتی دەربخە. هەوڵبدە لە قسەی ئەوانی ترەوە وشەکە بزانیت.";
+                } else {
+                    $('card-back').className = `card-face face-back`;
+                    $('card-role').innerText = "تۆ هاوڵاتییت";
+                    $('card-word').innerText = state.currentWord;
+                    $('card-desc').innerText = "سیخوڕەکە لە ناوتاندایە. وریا بە لە کاتی پرسیارکردن.";
+                }
+
             }, 200);
         }
 
