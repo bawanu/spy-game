@@ -55,8 +55,6 @@
 **Made by Bawan**
 
 
-[![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?&logo=Instagram&logoColor=white)](https://instagram.com/baxnasi7)
-
 <a href="https://instagram.com/baxnasi7">
-  <img src="https://commons.wikimedia.org/wiki/File:Instagram_icon.png" width="30"/>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/120px-Instagram_logo_2016.svg.png" width="30"/>
 </a>
