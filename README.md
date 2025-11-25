@@ -56,3 +56,7 @@
 
 
 [![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?&logo=Instagram&logoColor=white)](https://instagram.com/baxnasi7)
+
+<a href="https://instagram.com/baxnasi7">
+  <img src="https://img.icons8.com/ios-filled/50/000000/instagram-new.png" width="30"/>
+</a>
