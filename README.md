@@ -21,7 +21,7 @@
   
   [https://bawanu.github.io/spy-game ](http://bawanu.github.io/spy-game/)
   
-  2.یاری کردن بە ئۆفڵاین بۆ android، بڕۆ بەشی (release) پاشان (spy-game.apk) پاشان کلیک لەسەر (spy-game.apk) پاشان دابەزێنە  
+  2.یاری کردن بە ئۆفڵاین بۆ android، بڕۆ بەشی (release) پاشان کلیک لەسەر (spy-game.apk) بکە، دایبەزێنەو install بکە 
 
 3.  چێژ لە یاریەکە ببینە!
 
