@@ -459,7 +459,8 @@
                     <div id="winner-display" class="winner-header"></div>
                     <div class="results-card">
                         <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">وشەکە ئەمە بوو:</div>
-                        <div id="result-word" class="shimmer-text" style="font-size: 1.8rem; font-weight: 900; color: var(--primary); text-align: center; margin-bottom: 20px; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px;">-</div>
+                        <!-- FIXED LINE BELOW: Removed shimmer-text, added explicit white color and border -->
+                        <div id="result-word" style="font-size: 1.8rem; font-weight: 900; color: #fff; text-align: center; margin-bottom: 20px; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px; border: 1px solid var(--primary); box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);">-</div>
                         <div style="font-size: 0.9rem; color: var(--accent); font-weight: bold;">سیخوڕەکان:</div>
                         <div id="spies-list"></div>
                     </div>
