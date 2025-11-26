@@ -63,7 +63,13 @@
             100% { box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5); }
         }
 
-        @keyframes float { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: translateY(-100px) scale(1); opacity: 0; } }
+        /* Fixed Particle Animation */
+        @keyframes float { 
+            0% { transform: translateY(110vh) scale(0); opacity: 0; } 
+            20% { opacity: 0.5; transform: translateY(80vh) scale(1); }
+            100% { transform: translateY(-10vh) scale(0.5); opacity: 0; } 
+        }
+
         @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes bounceIn { 0% { opacity:0; transform: scale(0.8); } 60% { transform: scale(1.05); } 100% { opacity:1; transform: scale(1); } }
@@ -87,9 +93,17 @@
         @keyframes toastExit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-20px) scale(0.9); } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
 
-        /* --- BACKGROUND PARTICLES --- */
-        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0.5; }
-        .particle { position: absolute; border-radius: 50%; background: white; opacity: 0.3; animation: float infinite linear; }
+        /* --- BACKGROUND PARTICLES (FIXED) --- */
+        .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0.6; }
+        .particle { 
+            position: absolute; 
+            border-radius: 50%; 
+            background: rgba(255, 255, 255, 0.3); 
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            width: 4px; /* Added Size */
+            height: 4px; /* Added Size */
+            animation: float infinite linear; 
+        }
 
         /* --- APP WRAPPER --- */
         .app-wrapper {
@@ -459,7 +473,7 @@
                     <div id="winner-display" class="winner-header"></div>
                     <div class="results-card">
                         <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">وشەکە ئەمە بوو:</div>
-                        <div id="result-word" class="shimmer-text" style="font-size: 1.8rem; font-weight: 900; color: var(--primary); text-align: center; margin-bottom: 20px; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px;">-</div>
+                        <div id="result-word" style="font-size: 1.8rem; font-weight: 900; color: #fff; text-align: center; margin-bottom: 20px; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px; border: 1px solid var(--primary); box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);">-</div>
                         <div style="font-size: 0.9rem; color: var(--accent); font-weight: bold;">سیخوڕەکان:</div>
                         <div id="spies-list"></div>
                     </div>
@@ -578,6 +592,16 @@
 
         // --- DOM HELPERS ---
         const $ = (id) => document.getElementById(id);
+        
+        // HELPER: FORCE VIBRATE (Safe for all browsers)
+        function triggerVibration(pattern) {
+            if (navigator.vibrate) {
+                try {
+                    navigator.vibrate(pattern);
+                } catch(e) { console.log("Vibration blocked or not supported"); }
+            }
+        }
+
         const transitionTo = (viewId) => {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             $(viewId).classList.add('active');
@@ -586,6 +610,7 @@
 
         // --- TOAST NOTIFICATIONS ---
         function showToast(message) {
+            triggerVibration(200); // Vibrate immediately on error
             const container = $('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast-box';
@@ -604,7 +629,6 @@
             
             // Play error sound
             playSfx('pop'); 
-            if(navigator.vibrate) navigator.vibrate(200);
 
             // Remove after 3s
             setTimeout(() => {
@@ -628,6 +652,7 @@
         setupGrid();
 
         function toggleTopic(key, el) {
+            triggerVibration(15); // Light tap
             if (state.selectedCats.has(key)) {
                 state.selectedCats.delete(key);
                 el.classList.remove('selected');
@@ -645,7 +670,6 @@
                 }
             }
             playSfx('click');
-            if(navigator.vibrate) navigator.vibrate(10);
         }
 
         function addPlayer() {
@@ -656,6 +680,7 @@
                 renderTags();
                 input.value = '';
                 playSfx('pop');
+                triggerVibration(30);
             } else if(state.players.includes(name)) {
                 input.classList.add('error-shake');
                 showToast("ئەم ناوە پێشتر داخڵ کراوە!");
@@ -676,12 +701,14 @@
         }
 
         function removePlayer(i) {
+            triggerVibration(15);
             state.players.splice(i, 1);
             renderTags();
             playSfx('click');
         }
 
         function adjVal(id, amount) {
+            triggerVibration(10);
             const el = $(id);
             let val = parseInt(el.innerText);
             
@@ -692,14 +719,12 @@
                 if(val > max && state.players.length > 2) val = max; 
                 state.numSpies = val;
                 el.innerText = val;
-
                 // Sync Guess Count if manual mode is OFF
                 if (!state.manualGuessSet) {
                     $('guess-count').innerText = val;
                 }
-
             } else if (id === 'guess-count') {
-                state.manualGuessSet = true; // User manually set this
+                state.manualGuessSet = true;
                 val += amount;
                 if(val < 1) val = 1; if(val > 10) val = 10;
                 state.maxGuesses = val;
@@ -715,6 +740,7 @@
 
         // --- GAME INITIALIZATION ---
         function initGame() {
+            triggerVibration(50);
             if (state.players.length < 3) { 
                 showToast("لانی کەم دەبێت ٣ یاریزان هەبن"); 
                 return; 
@@ -781,10 +807,17 @@
         function flipCard() {
             const card = $('the-card');
             if(!isFlipped) {
-                playSfx('flip'); card.classList.add('flipped'); isFlipped = true;
-                if(navigator.vibrate) navigator.vibrate(50);
+                // FLIP ACTION
+                triggerVibration(50); // Single tap
+                playSfx('flip'); 
+                card.classList.add('flipped'); 
+                isFlipped = true;
             } else {
-                playSfx('flip'); card.classList.remove('flipped'); isFlipped = false;
+                // CLOSE ACTION
+                triggerVibration(50);
+                playSfx('flip'); 
+                card.classList.remove('flipped'); 
+                isFlipped = false;
                 setTimeout(() => {
                     state.cardIndex++;
                     if(state.cardIndex >= state.assignments.length) determineStarter();
@@ -800,6 +833,7 @@
             $('starter-name-display').innerText = randomStarter.name;
             transitionTo('view-starter');
             playSfx('victory');
+            triggerVibration([100, 50, 100]); // Success pattern
         }
 
         // --- TIMER ---
@@ -831,6 +865,7 @@
             }
         }
         function togglePause() {
+            triggerVibration(20);
             state.timerRunning = !state.timerRunning;
             $('pause-icon').className = state.timerRunning ? "fas fa-pause" : "fas fa-play";
             playSfx('click');
@@ -838,7 +873,8 @@
 
         function endGame() {
             clearInterval(state.timerInt);
-            try { playSfx('alarm'); if(navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]); } catch(e){}
+            triggerVibration([200, 100, 200, 100, 500]); // Long Alarm Pattern
+            try { playSfx('alarm'); } catch(e){}
             initVotingPhase();
             transitionTo('view-results');
         }
@@ -878,7 +914,8 @@
             $('attempts-count').innerText = state.guessesLeft;
 
             if (player.role === 'spy') {
-                playSfx('victory'); if(navigator.vibrate) navigator.vibrate(200);
+                triggerVibration([100, 50, 100, 50, 100]); // Strong Success
+                playSfx('victory'); 
                 state.activeSpies--;
                 btnElement.classList.add('caught');
                 btnElement.innerHTML = `<i class="fas fa-check"></i><div>${player.name}</div>`;
@@ -886,7 +923,8 @@
                 statusBox.innerText = `ئافەرین! ${player.name} سیخوڕ بوو!`;
                 if (state.activeSpies === 0) setTimeout(() => revealEverything('citizens'), 1000);
             } else {
-                playSfx('pop'); if(navigator.vibrate) navigator.vibrate(50);
+                triggerVibration(300); // Long Error Buzz
+                playSfx('pop'); 
                 state.activeCitizens--;
                 btnElement.classList.add('eliminated');
                 statusBox.className = 'status-box error';
@@ -902,11 +940,14 @@
         function revealEverything(winner) {
             const winDisplay = $('winner-display');
             winDisplay.innerHTML = '';
+            
             if (winner === 'citizens') {
+                triggerVibration([100, 50, 100]);
                 winDisplay.className = "winner-header winner-citizens";
                 winDisplay.innerHTML = `<i class="fas fa-trophy"></i><h1>هاوڵاتیان بردیانەوە!</h1>`;
                 playSfx('victory');
             } else if (winner === 'spies') {
+                triggerVibration([500, 100, 500]);
                 winDisplay.className = "winner-header winner-spies";
                 winDisplay.innerHTML = `<i class="fas fa-user-secret"></i><h1>سیخوڕەکان بردیانەوە!</h1>`;
                 playSfx('alarm');
@@ -928,7 +969,10 @@
 
         function goToSetup() { state.timerRunning = false; clearInterval(state.timerInt); transitionTo('view-setup'); }
         function toggleSound() { state.isSoundOn = !state.isSoundOn; $('btn-sound').style.opacity = state.isSoundOn?1:0.5; $('btn-sound').innerHTML=state.isSoundOn?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; }
-        function toggleHelp() { const m=$('help-modal'); if(m.style.display==='flex'){m.classList.remove('open');setTimeout(()=>m.style.display='none',300)}else{m.style.display='flex';requestAnimationFrame(()=>m.classList.add('open'));} }
+        function toggleHelp() { 
+            triggerVibration(20);
+            const m=$('help-modal'); if(m.style.display==='flex'){m.classList.remove('open');setTimeout(()=>m.style.display='none',300)}else{m.style.display='flex';requestAnimationFrame(()=>m.classList.add('open'));} 
+        }
 
         // --- ENHANCED AUDIO ENGINE ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
