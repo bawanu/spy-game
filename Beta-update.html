@@ -219,6 +219,14 @@
         .suspect-card.caught { background: var(--accent); border-color: var(--accent); pointer-events: none; }
         .suspect-card.caught i, .suspect-card.caught div { color: white; }
 
+        /* Winner Header */
+        .winner-header { text-align: center; margin-top: 20px; }
+        .winner-header i { font-size: 3rem; margin-bottom: 10px; }
+        .winner-citizens i { color: var(--success); }
+        .winner-citizens h1 { background: none; color: var(--success); -webkit-background-clip: unset; }
+        .winner-spies i { color: var(--accent); }
+        .winner-spies h1 { background: none; color: var(--accent); -webkit-background-clip: unset; }
+
         /* --- FOOTER (FIXED) --- */
         .footer {
             width: 100%;
@@ -395,16 +403,16 @@
                         <!-- Populated by JS -->
                     </div>
 
-                    <button class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything()">
+                    <button class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything('neutral')">
                          کۆتایی / هەموویان ئاشکرا بکە
                     </button>
                 </div>
 
                 <!-- Final Results Phase (Post Reveal) -->
                 <div id="phase-post-reveal" class="result-phase-container" style="display: none;">
-                    <div style="text-align: center; margin-top: 20px;">
-                        <i class="fas fa-flag-checkered" style="font-size: 3rem; color: var(--success);"></i>
-                        <h1>ئەنجامەکان</h1>
+                    
+                    <div id="winner-display" class="winner-header">
+                        <!-- Populated via JS -->
                     </div>
 
                     <div class="results-card">
@@ -545,7 +553,11 @@
             // Game Session
             currentWord: '',
             assignments: [],
-            spiesFound: 0, // Track how many spies caught
+            
+            // Logic Counters
+            activeSpies: 0,
+            activeCitizens: 0,
+            
             cardIndex: 0,
             timerRunning: false,
             timeLeft: 0,
@@ -669,7 +681,6 @@
             }
 
             state.numSpies = parseInt($('spy-count').innerText);
-            state.spiesFound = 0;
             
             // 1. Combine Words from Selected Categories
             let pool = [];
@@ -875,6 +886,10 @@
             statusBox.className = 'status-box';
             statusBox.innerText = "تکایە گومانلێکراو هەڵبژێرە";
 
+            // Initialize Counters
+            state.activeSpies = state.numSpies;
+            state.activeCitizens = state.players.length - state.numSpies;
+
             // Create Buttons for Players
             const grid = $('suspects-grid');
             grid.innerHTML = '';
@@ -892,11 +907,11 @@
             const statusBox = $('voting-status');
             
             if (player.role === 'spy') {
-                // IS SPY
+                // --- SPY CAUGHT ---
                 playSfx('victory');
                 if(navigator.vibrate) navigator.vibrate(200);
 
-                state.spiesFound++;
+                state.activeSpies--; // Decrement Spy Count
                 
                 // Update Button UI
                 btnElement.classList.add('caught');
@@ -906,29 +921,55 @@
                 statusBox.className = 'status-box success';
                 statusBox.innerText = `ئافەرین! ${player.name} سیخوڕ بوو!`;
 
-                // Check Win Condition
-                if (state.spiesFound >= state.numSpies) {
+                // WIN CONDITION: All Spies Found
+                if (state.activeSpies === 0) {
                     setTimeout(() => {
-                        alert("پیرۆزە! هەموو سیخوڕەکان دۆزرانەوە.");
-                        revealEverything();
+                        revealEverything('citizens'); // CITIZENS WIN
                     }, 1000);
                 }
 
             } else {
-                // NOT SPY (INNOCENT)
+                // --- INNOCENT (CITIZEN) VOTED OUT ---
                 playSfx('pop');
                 if(navigator.vibrate) navigator.vibrate(50);
 
+                state.activeCitizens--; // Decrement Citizen Count
+                
                 // Exclude / Disable Button
                 btnElement.classList.add('eliminated');
                 
                 // Update Status
                 statusBox.className = 'status-box error';
                 statusBox.innerText = `${player.name} بێتاوانە! سیخوڕ نییە.`;
+
+                // WIN CONDITION: Spies >= Citizens
+                if (state.activeSpies >= state.activeCitizens) {
+                    setTimeout(() => {
+                        revealEverything('spies'); // SPIES WIN
+                    }, 1000);
+                }
             }
         }
 
-        function revealEverything() {
+        function revealEverything(winner) {
+            // Winner Display
+            const winDisplay = $('winner-display');
+            winDisplay.innerHTML = '';
+            
+            if (winner === 'citizens') {
+                winDisplay.className = "winner-header winner-citizens";
+                winDisplay.innerHTML = `<i class="fas fa-trophy"></i><h1>هاوڵاتیان بردیانەوە!</h1>`;
+                playSfx('victory');
+            } else if (winner === 'spies') {
+                winDisplay.className = "winner-header winner-spies";
+                winDisplay.innerHTML = `<i class="fas fa-user-secret"></i><h1>سیخوڕەکان بردیانەوە!</h1>`;
+                playSfx('alarm'); // Lose sound
+            } else {
+                // Neutral (Clicked Reveal Button)
+                winDisplay.className = "winner-header";
+                winDisplay.innerHTML = `<i class="fas fa-flag-checkered"></i><h1>ئەنجامەکان</h1>`;
+            }
+
             // Populate Data
             $('result-word').innerText = state.currentWord || "Error";
             
