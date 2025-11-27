@@ -1,29 +1,30 @@
-// service-worker.js
+const CACHE_NAME = 'my-game-cache-v1'; // Change this to 'v2' when you update the game!
 
-const CACHE_NAME = 'my-game-cache-v1'; // Increment this when you update the game
+// Files to save for offline use
 const URLS_TO_CACHE = [
-  '/',                        // root, resolves to index.html
-  '/index.html',
-  '/favicon.ico',
-  '/apple-touch-icon.png',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/manifest.json'
+  './',                     // The main folder
+  './index.html',           // The game file
+  './manifest.json',        // The app installer info
+  './favicon.ico',          // Small icon
+  './apple-touch-icon.png', // iOS icon
+  './icon-192.png',         // Android icon
+  './icon-512.png'          // Large Android icon
+  // Note: If you want 'edit.html' to work offline too, add './edit.html' here.
 ];
 
-// Install: cache all necessary files
+// 1. INSTALL: Download and save the files
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache, caching files...');
+        console.log('Opened cache, downloading files...');
         return cache.addAll(URLS_TO_CACHE);
       })
   );
-  self.skipWaiting(); // Activate worker immediately
+  self.skipWaiting(); // Force this new service worker to activate immediately
 });
 
-// Activate: clean up old caches
+// 2. ACTIVATE: Delete old cache versions
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames =>
@@ -37,15 +38,18 @@ self.addEventListener('activate', event => {
       )
     )
   );
-  self.clients.claim(); // Take control immediately
+  self.clients.claim(); // Take control of the page immediately
 });
 
-// Fetch: cache-first, then network update
+// 3. FETCH: The "Stale-While-Revalidate" Strategy
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
+      // Strategy: Use the Cache first (FAST), but check Network for updates (SMART)
+      
       const fetchPromise = fetch(event.request)
         .then(networkResponse => {
+          // If we got a valid response from the internet, update the cache
           if (networkResponse && networkResponse.status === 200) {
             caches.open(CACHE_NAME).then(cache => {
               cache.put(event.request, networkResponse.clone());
@@ -54,11 +58,11 @@ self.addEventListener('fetch', event => {
           return networkResponse;
         })
         .catch(() => {
-          // If network fails and nothing cached, fallback to index.html
-          return cachedResponse || caches.match('/index.html');
+          // If internet is dead, do nothing (we already have the cachedResponse)
         });
 
-      // Return cached response immediately if exists, else wait for network
+      // Return the cached version immediately if we have it!
+      // Otherwise, wait for the network.
       return cachedResponse || fetchPromise;
     })
   );
