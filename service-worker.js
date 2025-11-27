@@ -1,64 +1,65 @@
-const CACHE_NAME = 'my-site-cache-v1';
-const CACHE_FILES = [
-  '/',                // index.html
+const CACHE_NAME = 'my-site-cache-v1'; // Change version when updating
+const urlsToCache = [
+  '/',
   '/index.html',
   '/favicon.ico',
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png',
-  '/manifest.json',
-  // Add all image paths
-  '/images/image1.jpg',
-  '/images/image2.png',
-  // Add CSS/JS files if any
+  // Add all your other images here
+  '/image1.jpg',
+  '/image2.jpg',
+  // ... add all other images (7 MB total)
 ];
 
-// Install event - cache everything
+// Install event: cache all files
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('[ServiceWorker] Caching all files');
-      return cache.addAll(CACHE_FILES);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('Opened cache, caching files...');
+        return cache.addAll(urlsToCache);
+      })
   );
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event: clean up old caches if needed
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            console.log('[ServiceWorker] Removing old cache', key);
-            return caches.delete(key);
+    caches.keys().then(cacheNames =>
+      Promise.all(
+        cacheNames.map(name => {
+          if (name !== CACHE_NAME) {
+            console.log('Deleting old cache:', name);
+            return caches.delete(name);
           }
         })
-      );
-    })
+      )
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - respond with cache first, then update cache in background
+// Fetch event: serve cached files first, then update cache in background
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
-      const fetchPromise = fetch(event.request).then(networkResponse => {
-        // Update cache if request succeeds
-        if (networkResponse && networkResponse.status === 200) {
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, networkResponse.clone());
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Network failed, just return cached response
-        return cachedResponse;
-      });
+      const fetchPromise = fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, networkResponse.clone());
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // If network fails, return cached version
+          return cachedResponse;
+        });
 
-      // Return cached response immediately if available, else wait for network
+      // Return cached response immediately if exists, else wait for network
       return cachedResponse || fetchPromise;
     })
   );
