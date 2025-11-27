@@ -6,10 +6,10 @@ const urlsToCache = [
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png',
-  // Add all your other images here
+ 
   '/image1.jpg',
   '/image2.jpg',
-  // ... add all other images (7 MB total)
+
 ];
 
 // Install event: cache all files
