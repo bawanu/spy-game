@@ -42,8 +42,10 @@ self.addEventListener('activate', event => {
 
 // 3. FETCH (The Fixed Version)
 self.addEventListener('fetch', event => {
-  // We only want to cache GET requests (not POST, etc.)
+  // cache only GET requests (not POST, etc.)
   if (event.request.method !== 'GET') return;
+  //  FIX: Ignore non-HTTP(S) requests (like chrome-extension://)
+  if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
@@ -65,7 +67,7 @@ self.addEventListener('fetch', event => {
 
         return networkResponse;
       }).catch(error => {
-        // If fetch fails (offline) and nothing in cache, you could return a fallback here
+        // If fetch fails (offline)
         console.log('Fetch failed:', error);
       });
 
