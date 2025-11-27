@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-game-cache-v2'; // I updated this to v2 for you
+const CACHE_NAME = 'my-game-cache-v2'; // updated
 
 // Files to save for offline use
 const URLS_TO_CACHE = [
