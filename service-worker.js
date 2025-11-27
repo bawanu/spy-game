@@ -1,14 +1,11 @@
 const CACHE_NAME = 'my-site-cache-v1'; // Change version when updating
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/favicon.ico',
-  '/apple-touch-icon.png',
-  '/icon-192.png',
-  '/icon-512.png',
- 
-  '/image1.jpg',
-  '/image2.jpg',
+  'index.html',
+  'favicon.ico',
+  'apple-touch-icon.png',
+  'icon-192.png',
+  'icon-512.png',
 
 ];
 
