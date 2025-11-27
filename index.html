@@ -1041,6 +1041,15 @@
         
         // Particles
         const pC=document.getElementById('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
+        
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+            .then(() => console.log('Service Worker registered'))
+            .catch(err => console.log('Service Worker registration failed:', err));
+        }
+        
+
     </script>
 </body>
 </html>
