@@ -817,21 +817,18 @@
 
             if(isRestore) {
                 restoreHostGameState();
-                // Mark everyone else offline until they reconnect
-                state.players.forEach(p => {
-                    if(p !== state.myName) state.playerStatus[p] = 'offline';
-                });
-                renderLobbyPlayers(); 
+                // Ensure UI is refreshed immediately after restore
+                renderLobbyPlayers();
+                showToast("گەڕایتەوە بۆ ژوورەکەت");
             } else {
                 transitionTo('view-lobby-waiting');
+                renderLobbyPlayers();
             }
 
-            renderLobbyPlayers();
             $('host-controls').style.display = 'flex';
             $('client-wait-msg').style.display = 'none';
             
             updateLockBtnUI();
-            if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
         });
 
         peer.on('error', (err) => {
@@ -960,9 +957,6 @@
             // Name Duplicate Check
             if (!data.isRejoining || (data.isRejoining && !state.players.includes(data.name))) {
                 while(state.players.includes(finalName)) {
-                    // If conflict, check if existing is offline. 
-                    // To keep simple and safe, we always rename conflicts unless exact re-id logic is used.
-                    // Here we rename to avoid confusion.
                      finalName = `${data.name}_${counter}`;
                      counter++;
                 }
@@ -989,6 +983,9 @@
             }
             
             saveHostGameState(); 
+            
+            // Update Host UI immediately
+            renderLobbyPlayers();
 
             broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
 
@@ -1820,6 +1817,13 @@
             state.flippedCount = d.flippedCount || 0;
             state.onlineVotes = d.onlineVotes || {};
             
+            // Mark everyone offline initially on restore (except self)
+            // They will become online when their clients reconnect
+            state.players.forEach(p => {
+                if(p !== state.myName) state.playerStatus[p] = 'offline';
+            });
+            state.playerStatus[state.myName] = 'online';
+
             // RESTORE UI BASED ON PHASE
             if(state.gamePhase === 'CARDS') {
                 $('current-player-name').innerText = state.myName;
@@ -1836,6 +1840,11 @@
             } else if(state.gamePhase === 'SETUP') {
                 transitionTo('view-setup');
                 renderTags();
+            } else {
+                // FIXED: Explicitly handle LOBBY restore
+                transitionTo('view-lobby-waiting');
+                renderLobbyPlayers();
+                $('host-controls').style.display = 'flex';
             }
         }
     }
