@@ -774,6 +774,7 @@ function performExitCleanup() {
     state.isOnline = false;
     state.gamePhase = 'LOBBY';
     state.isRoomLocked = false;
+    state.flippedCount = 0;
     
     $('player-input').value = '';
     $('my-name-input').value = '';
@@ -808,6 +809,8 @@ function createOnlineRoom(isRestore = false) {
     if(!isRestore) {
         state.players = [name];
         state.playerStatus = { [name]: 'online' };
+        // FIX 1: Save state immediately upon creation so refresh works even before game starts
+        state.gamePhase = 'LOBBY'; 
     }
     
     saveSession(true, name, customCode);
@@ -832,6 +835,8 @@ function createOnlineRoom(isRestore = false) {
             renderLobbyPlayers(); 
         } else {
             transitionTo('view-lobby-waiting');
+            // FIX 1: Ensure state is saved after successful open
+            saveHostGameState();
         }
 
         renderLobbyPlayers();
@@ -1855,11 +1860,14 @@ function restoreHostGameState() {
             checkVoteCompletion();
         } else if(state.gamePhase === 'SETUP') {
             transitionTo('view-setup');
+            // FIX: Restore Online Setup UI correctly
+            $('btn-exit').style.display = 'none';
+            $('btn-back-lobby').style.display = 'grid';
+            $('player-input-section').style.display = 'none';
             renderTags();
         } else {
             // FIX: Explicitly handle LOBBY or undefined phase
             transitionTo('view-lobby-waiting');
-            // Ensure the specific controls for host are visible
             $('host-controls').style.display = 'flex';
             $('client-wait-msg').style.display = 'none';
         }
