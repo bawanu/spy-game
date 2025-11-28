@@ -1856,6 +1856,12 @@ function restoreHostGameState() {
         } else if(state.gamePhase === 'SETUP') {
             transitionTo('view-setup');
             renderTags();
+        } else {
+            // FIX: Explicitly handle LOBBY or undefined phase
+            transitionTo('view-lobby-waiting');
+            // Ensure the specific controls for host are visible
+            $('host-controls').style.display = 'flex';
+            $('client-wait-msg').style.display = 'none';
         }
     }
 }
