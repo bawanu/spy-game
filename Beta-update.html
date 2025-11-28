@@ -851,6 +851,9 @@
                 
                 updateLockBtnUI();
                 if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
+
+                // Ensure state is saved immediately to prevent sync issues
+                saveHostGameState();
             });
 
             peer.on('error', (err) => {
@@ -942,20 +945,29 @@
                      return;
                 }
 
-                // 2. Add to list if new
+                // 2. NAME DUPLICATION CHECK & SUFFIX LOGIC
+                // Even if known, we re-verify name to ensure connections map correctly
+                let finalName = data.name;
+                
                 if (!isKnown) {
-                     state.players.push(data.name);
+                     // New player - check duplicates
+                     finalName = getUniqueName(data.name, state.players);
+                     state.players.push(finalName);
                      broadcast({ type: 'UPDATE_LOBBY', players: state.players });
                      saveHostGameState(); // Save new player list
-                } else {
-                    // FIX: Even if known, send the lobby update to THIS connection so they see the list
-                    conn.send({ type: 'UPDATE_LOBBY', players: state.players });
-                }
-                conn.playerName = data.name; 
+                } 
+                
+                conn.playerName = finalName; // Bind actual unique name to connection
+
+                // Inform the client of their assigned name (in case it changed)
+                conn.send({ type: 'YOUR_NAME', name: finalName });
+
+                // Update lobby for this specific user immediately
+                conn.send({ type: 'UPDATE_LOBBY', players: state.players });
 
                 // 3. IMMEDIATE GAME RESTORE (Sync State)
                 if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
-                    const playerObj = state.assignments.find(a => a.name === data.name);
+                    const playerObj = state.assignments.find(a => a.name === finalName);
                     if(playerObj) {
                         // Send Basic Info
                         conn.send({
@@ -979,6 +991,7 @@
             }
             else if(data.type === 'FLIPPED_BACK') {
                 state.flippedCount++;
+                saveHostGameState(); // Save progress
                 if(state.flippedCount >= state.players.length) {
                     determineStarter(); 
                     const starter = $('starter-name-display').innerText;
@@ -998,10 +1011,28 @@
                 }
             }
         }
+        
+        // Helper to generate unique names (Ali, Ali_1, Ali_2)
+        function getUniqueName(baseName, currentList) {
+            if(!currentList.includes(baseName)) return baseName;
+            
+            let counter = 1;
+            let newName = `${baseName}_${counter}`;
+            while(currentList.includes(newName)) {
+                counter++;
+                newName = `${baseName}_${counter}`;
+            }
+            return newName;
+        }
 
         // --- CLIENT DATA HANDLER ---
         function handleClientData(data) {
-            if(data.type === 'UPDATE_LOBBY') {
+            if(data.type === 'YOUR_NAME') {
+                // Update local name if server changed it (duplicate handling)
+                state.myName = data.name;
+                $('my-name-input').value = data.name;
+            }
+            else if(data.type === 'UPDATE_LOBBY') {
                 state.players = data.players;
                 renderLobbyPlayers();
             }
@@ -1188,8 +1219,10 @@
         function addPlayer() {
             const input = $('player-input');
             const name = input.value.trim();
-            if(name && !state.players.includes(name)) {
-                state.players.push(name);
+            if(name) {
+                // Suffix logic for offline mode
+                let finalName = getUniqueName(name, state.players);
+                state.players.push(finalName);
                 renderTags();
                 input.value = '';
                 playSfx('pop');
@@ -1360,6 +1393,7 @@
                         
                         if(state.isHost) {
                             state.flippedCount++; 
+                            saveHostGameState();
                             if(state.flippedCount >= state.players.length) {
                                 determineStarter();
                                 broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
@@ -1755,6 +1789,8 @@
 
         function restoreHostGameState() {
             const saved = sessionStorage.getItem('spy_host_state');
+            const myName = sessionStorage.getItem('spy_name');
+
             if(saved) {
                 const d = JSON.parse(saved);
                 state.players = d.players || [];
@@ -1769,22 +1805,35 @@
                 state.flippedCount = d.flippedCount || 0;
                 state.onlineVotes = d.onlineVotes || {};
                 
+                // Ensure the Host knows their own name
+                if(myName) state.myName = myName;
+
                 // RESTORE UI BASED ON PHASE
                 if(state.gamePhase === 'CARDS') {
-                    $('current-player-name').innerText = state.myName;
+                    // Find host's own role card
                     state.myRole = state.assignments.find(a => a.name === state.myName);
+                    if(!state.myRole) state.myRole = { role: 'citizen' }; // Fallback
+
+                    $('current-player-name').innerText = state.myName;
                     transitionTo('view-cards');
                     updateOnlineCardView();
+
                 } else if(state.gamePhase === 'TIMER') {
                     transitionTo('view-timer');
                     startTimer(state.timeLeft);
+
                 } else if(state.gamePhase === 'VOTING') {
                     initVotingPhase();
                     transitionTo('view-results');
                     checkVoteCompletion();
+
                 } else if(state.gamePhase === 'SETUP') {
                     transitionTo('view-setup');
                     renderTags();
+                } else {
+                     // Default Lobby
+                     transitionTo('view-lobby-waiting');
+                     renderLobbyPlayers();
                 }
             }
         }
