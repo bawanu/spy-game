@@ -566,7 +566,7 @@
                         <p class="subtitle" style="margin-bottom: 10px;">گومانلێکراو هەڵبژێرە و دەنگ بدە</p>
                     </div>
                     
-                    <!-- ATTEMPTS LEFT DISPLAY -->
+                    <!-- ATTEMPTS LEFT DISPLAY (Local Only) -->
                     <div id="attempts-display" class="attempts-display">
                         <i class="fas fa-bullseye"></i> <span id="attempts-count">0</span> هەوڵ ماوە
                     </div>
@@ -574,25 +574,26 @@
                     <div id="voting-status" class="status-box">تکایە هەمووان دەنگ بدەن</div>
                     <div id="suspects-grid" class="topics-grid"></div>
                     
-                    <!-- Online Vote Confirm Button -->
+                    <!-- Online Vote Confirm Button (Client) -->
                     <button id="btn-confirm-vote" class="primary-btn" onclick="confirmVote()" style="display: none; margin-top: 20px;">
                          <span>ناردنی دەنگ</span> <i class="fas fa-vote-yea"></i>
                     </button>
 
-                    <!-- FORCE END GAME BUTTON (Host Only - Online) -->
-                    <button id="btn-force-end" class="primary-btn danger" onclick="forceEndGame()" style="display: none; margin-top: 20px;">
-                         <span>کۆتایی / ئاشکراکردن (Skip)</span> <i class="fas fa-eye"></i>
+                    <!-- HOST SKIP BUTTON (Online Only) -->
+                    <button id="btn-force-end" class="primary-btn danger" onclick="hostSkipVoting()" style="display: none; margin-top: 20px; animation: none;">
+                         <span>کۆتایی هێنان و ئاشکراکردن</span> <i class="fas fa-eye"></i>
                     </button>
 
-                    <!-- Only Host reveals (Visible only in Local Mode) -->
+                    <!-- Reveal Button (Local Mode Only) -->
                     <button id="btn-reveal-all" class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything('neutral')">
-                         <span>کۆتایی / هەموویان ئاشکرا بکە</span>
+                         <span>هەموویان ئاشکرا بکە</span>
                     </button>
                     
                     <div id="client-reveal-msg" style="display:none; text-align:center; margin-top:10px; opacity:0.6; font-size: 0.9rem;">
                         چاوەڕێی دەنگی ئەوانی تر بە...
                     </div>
                 </div>
+
                 <!-- Final Results -->
                 <div id="phase-post-reveal" class="result-phase-container" style="display: none;">
                     <div id="winner-display" class="winner-header"></div>
@@ -929,6 +930,7 @@
             else if(data.type === 'FLIPPED_BACK') {
                 state.flippedCount++;
                 if(state.flippedCount >= state.players.length) {
+                    // All flipped, start timer logic
                     determineStarter(); 
                     const starter = $('starter-name-display').innerText;
                     broadcast({ type: 'SHOW_STARTER', starterName: starter });
@@ -938,9 +940,6 @@
                 // Collect votes
                 if(!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[data.voter] = data.suspect;
-                
-                // IMPORTANT: Broadcast VOTE_REGISTERED back to everyone immediately
-                broadcast({ type: 'VOTE_REGISTERED', suspect: data.suspect, voter: data.voter });
                 
                 // Broadcast progress
                 const voteCount = Object.keys(state.onlineVotes).length;
@@ -974,7 +973,6 @@
                 // Host moved to setup
             }
             else if(data.type === 'START_GAME') {
-                state.players = data.allPlayers; // Fix: Ensure client gets full player list
                 state.myRole = data.roleObj;
                 state.gameTime = data.time;
                 state.currentWord = data.word; 
@@ -1007,13 +1005,11 @@
                  endGame();
             }
             else if(data.type === 'VOTE_PROGRESS') {
+                // Update text: 3/5 voted
                 $('voting-status').innerText = `دەنگدان... (${data.count} / ${data.total})`;
             }
-            else if(data.type === 'VOTE_REGISTERED') {
-                 // Show badge for any vote coming in
-                 showVoteOnUI(data.suspect, data.voter);
-            }
             else if(data.type === 'VOTE_RESULT') {
+                // FIXED: Receive assignments list to know who was spy
                 revealEverything(data.winner, data.assignments);
             }
             else if(data.type === 'RETURN_TO_LOBBY') {
@@ -1023,9 +1019,6 @@
             else if(data.type === 'ROOM_CLOSED') {
                 showToast("سێرڤەرەکە داخرا!");
                 setTimeout(() => exitToMainMenu(), 1500);
-            }
-            else if(data.type === 'REVEAL_ALL') {
-                revealEverything(data.winner, data.assignments);
             }
         }
 
@@ -1247,7 +1240,6 @@
                     if(playerObj) {
                         conn.send({
                             type: 'START_GAME',
-                            allPlayers: state.players, // Fix: Send full player list for voting UI
                             roleObj: playerObj,
                             time: state.gameTime,
                             word: state.currentWord,
@@ -1270,7 +1262,7 @@
             }
         }
 
-        // --- CARD LOGIC (Fixed Glitch) ---
+        // --- CARD LOGIC ---
         let isFlipped = false;
         let isAnimating = false; // Prevents rapid clicks
 
@@ -1445,17 +1437,20 @@
             if(state.isOnline) {
                 $('attempts-display').style.display = 'none'; 
                 $('voting-status').innerText = "تکایە هەمووان دەنگ بدەن";
-                $('btn-confirm-vote').style.display = 'block';
+                $('btn-confirm-vote').style.display = 'flex'; // Changed to flex for alignment
                 $('btn-confirm-vote').disabled = true;
-                $('btn-confirm-vote').innerText = "ناردنی دەنگ"; 
-                
-                // Show Force End button only for Host
-                $('btn-force-end').style.display = state.isHost ? 'block' : 'none';
-                
+                $('btn-confirm-vote').innerText = "ناردنی دەنگ";
                 $('btn-reveal-all').style.display = 'none';
                 $('client-reveal-msg').style.display = 'none';
+
+                // SHOW SKIP BUTTON FOR HOST
+                if(state.isHost) {
+                    $('btn-force-end').style.display = 'flex';
+                } else {
+                    $('btn-force-end').style.display = 'none';
+                }
             } else {
-                // Local
+                // Local Mode
                 state.guessesLeft = state.maxGuesses;
                 $('attempts-display').style.display = 'flex';
                 $('attempts-count').innerText = state.guessesLeft;
@@ -1470,23 +1465,19 @@
             const grid = $('suspects-grid');
             grid.innerHTML = '';
             
-            // Fix for Voting List: Use players list for clients who don't have assignments
-            let votingCandidates = state.assignments;
-            if(state.isOnline && !state.isHost) {
-                // Clients don't have roles in assignments, but they have the player list from START_GAME
-                votingCandidates = state.players.map(name => ({ name: name, role: 'unknown' }));
-            }
-
-            votingCandidates.forEach(player => {
+            // FIX: Iterate over state.players instead of state.assignments for online clients
+            state.players.forEach(playerName => {
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
-                btn.id = `suspect-${player.name}`;
-                btn.innerHTML = `<i class="fas fa-user"></i><div>${player.name}</div>`;
+                btn.id = `suspect-${playerName}`;
+                btn.innerHTML = `<i class="fas fa-user"></i><div>${playerName}</div>`;
                 
                 if(state.isOnline) {
-                    btn.onclick = () => selectSuspectOnline(player.name, btn);
+                    btn.onclick = () => selectSuspectOnline(playerName, btn);
                 } else {
-                    btn.onclick = () => checkSuspectLocal(player, btn);
+                    // For local, find object immediately
+                    const localPlayerObj = state.assignments.find(p => p.name === playerName);
+                    btn.onclick = () => checkSuspectLocal(localPlayerObj, btn);
                 }
                 grid.appendChild(btn);
             });
@@ -1502,7 +1493,9 @@
             state.mySelectedSuspect = suspectName;
             
             // Enable button
-            $('btn-confirm-vote').disabled = false;
+            const btn = $('btn-confirm-vote');
+            btn.disabled = false;
+            btn.classList.add('pulse'); // Animation hint
             playSfx('click');
         }
 
@@ -1521,16 +1514,8 @@
                 // I am host, process directly
                 if(!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[state.myName] = state.mySelectedSuspect;
-                
-                // Show my badge immediately
-                showVoteOnUI(state.mySelectedSuspect, state.myName);
-                broadcast({ type: 'VOTE_REGISTERED', suspect: state.mySelectedSuspect, voter: state.myName });
-                
                 checkVoteCompletion();
             } else {
-                // Send to host
-                // Also show my own badge locally for instant feedback
-                showVoteOnUI(state.mySelectedSuspect, state.myName);
                 myConn.send(myVoteData);
             }
         }
@@ -1547,6 +1532,23 @@
             if(voteCount >= totalPlayers) {
                 setTimeout(processVotingResult, 1000);
             }
+        }
+        
+        // New: Host Skip Voting
+        function hostSkipVoting() {
+            if(!state.isOnline || !state.isHost) return;
+            
+            // Reveal everything immediately. 
+            const resultData = { 
+                type: 'VOTE_RESULT', 
+                victim: null, 
+                isSpy: false, 
+                winner: 'neutral', 
+                assignments: state.assignments // CRITICAL: Send roles to clients
+            };
+            
+            broadcast(resultData);
+            revealEverything('neutral', state.assignments);
         }
 
         function processVotingResult() {
@@ -1568,13 +1570,13 @@
             }
             
             // Check if victim is Spy
-            const victimRole = state.assignments.find(p => p.name === victim).role;
+            const victimObj = state.assignments.find(p => p.name === victim);
             let winner = 'spies'; // Default spies win
             let isSpy = false;
 
-            if(victimRole === 'spy') {
+            if(victimObj && victimObj.role === 'spy') {
                 isSpy = true;
-                // If single spy game, Citizens win. If multiple, we might need more logic but let's keep simple: Find Spy = Win
+                // If single spy game, Citizens win.
                 winner = 'citizens';
             }
             
@@ -1584,23 +1586,11 @@
                 victim: victim, 
                 isSpy: isSpy, 
                 winner: winner, 
-                assignments: state.assignments 
+                assignments: state.assignments // Send roles to clients
             };
             
             revealEverything(winner, state.assignments); // For Host
             broadcast(resultData); // For Clients
-        }
-        
-        function forceEndGame() {
-            if(state.isHost) {
-                const resultData = { 
-                    type: 'REVEAL_ALL', 
-                    winner: 'neutral', // Neutral reveal
-                    assignments: state.assignments 
-                };
-                revealEverything('neutral', state.assignments);
-                broadcast(resultData);
-            }
         }
 
         // Local Mode Logic
@@ -1632,21 +1622,15 @@
             }
         }
 
-        function showVoteOnUI(suspectName, voterName) {
-            const card = document.getElementById(`suspect-${suspectName}`);
-            if(card) {
-                const badge = document.createElement('div');
-                badge.className = 'voter-badge';
-                // Take first 2 chars of voter name
-                badge.innerText = voterName.substring(0,2);
-                card.appendChild(badge);
-                playSfx('pop');
-            }
-        }
-
         function revealEverything(winner, assignmentsList = null) {
+            // Use the passed list (from Host) or local list
             const currentAssignments = assignmentsList || state.assignments;
             
+            if(!currentAssignments || currentAssignments.length === 0) {
+                console.error("No assignments available");
+                return;
+            }
+
             const winDisplay = $('winner-display');
             winDisplay.innerHTML = '';
             if (winner === 'citizens') {
