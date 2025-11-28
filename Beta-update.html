@@ -995,12 +995,11 @@
             }
             
             saveHostGameState(); 
-            
-            // --- FIX START: UPDATE HOST UI ---
-            renderLobbyPlayers();
-            // --- FIX END ---
 
             broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+            
+            // FIX: Ensure host updates their own UI immediately
+            renderLobbyPlayers();
 
             // Restore Game State
             if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
@@ -1861,6 +1860,9 @@
             } else if(state.gamePhase === 'SETUP') {
                 transitionTo('view-setup');
                 renderTags();
+            } else {
+                // DEFAULT / LOBBY PHASE RESTORATION
+                transitionTo('view-lobby-waiting');
             }
         }
     }
