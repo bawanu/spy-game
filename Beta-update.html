@@ -579,6 +579,11 @@
                          <span>ناردنی دەنگ</span> <i class="fas fa-vote-yea"></i>
                     </button>
 
+                    <!-- FORCE END GAME BUTTON (Host Only - Online) -->
+                    <button id="btn-force-end" class="primary-btn danger" onclick="forceEndGame()" style="display: none; margin-top: 20px;">
+                         <span>کۆتایی / ئاشکراکردن (Skip)</span> <i class="fas fa-eye"></i>
+                    </button>
+
                     <!-- Only Host reveals (Visible only in Local Mode) -->
                     <button id="btn-reveal-all" class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything('neutral')">
                          <span>کۆتایی / هەموویان ئاشکرا بکە</span>
@@ -924,7 +929,6 @@
             else if(data.type === 'FLIPPED_BACK') {
                 state.flippedCount++;
                 if(state.flippedCount >= state.players.length) {
-                    // All flipped, start timer logic
                     determineStarter(); 
                     const starter = $('starter-name-display').innerText;
                     broadcast({ type: 'SHOW_STARTER', starterName: starter });
@@ -934,6 +938,9 @@
                 // Collect votes
                 if(!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[data.voter] = data.suspect;
+                
+                // IMPORTANT: Broadcast VOTE_REGISTERED back to everyone immediately
+                broadcast({ type: 'VOTE_REGISTERED', suspect: data.suspect, voter: data.voter });
                 
                 // Broadcast progress
                 const voteCount = Object.keys(state.onlineVotes).length;
@@ -999,11 +1006,13 @@
                  endGame();
             }
             else if(data.type === 'VOTE_PROGRESS') {
-                // Update text: 3/5 voted
                 $('voting-status').innerText = `دەنگدان... (${data.count} / ${data.total})`;
             }
+            else if(data.type === 'VOTE_REGISTERED') {
+                 // Show badge for any vote coming in
+                 showVoteOnUI(data.suspect, data.voter);
+            }
             else if(data.type === 'VOTE_RESULT') {
-                // data.victim, data.isSpy, data.winner
                 revealEverything(data.winner, data.assignments);
             }
             else if(data.type === 'RETURN_TO_LOBBY') {
@@ -1013,6 +1022,9 @@
             else if(data.type === 'ROOM_CLOSED') {
                 showToast("سێرڤەرەکە داخرا!");
                 setTimeout(() => exitToMainMenu(), 1500);
+            }
+            else if(data.type === 'REVEAL_ALL') {
+                revealEverything(data.winner, data.assignments);
             }
         }
 
@@ -1429,10 +1441,15 @@
             state.mySelectedSuspect = null; // Reset selection
 
             if(state.isOnline) {
-                $('attempts-display').style.display = 'none'; // No guesses left logic in online new mode
+                $('attempts-display').style.display = 'none'; 
                 $('voting-status').innerText = "تکایە هەمووان دەنگ بدەن";
                 $('btn-confirm-vote').style.display = 'block';
                 $('btn-confirm-vote').disabled = true;
+                $('btn-confirm-vote').innerText = "ناردنی دەنگ"; 
+                
+                // Show Force End button only for Host
+                $('btn-force-end').style.display = state.isHost ? 'block' : 'none';
+                
                 $('btn-reveal-all').style.display = 'none';
                 $('client-reveal-msg').style.display = 'none';
             } else {
@@ -1444,6 +1461,7 @@
                 state.activeCitizens = state.players.length - state.numSpies;
                 $('voting-status').innerText = "تکایە گومانلێکراو هەڵبژێرە";
                 $('btn-confirm-vote').style.display = 'none';
+                $('btn-force-end').style.display = 'none';
                 $('btn-reveal-all').style.display = 'block';
             }
 
@@ -1494,8 +1512,16 @@
                 // I am host, process directly
                 if(!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[state.myName] = state.mySelectedSuspect;
+                
+                // Show my badge immediately
+                showVoteOnUI(state.mySelectedSuspect, state.myName);
+                broadcast({ type: 'VOTE_REGISTERED', suspect: state.mySelectedSuspect, voter: state.myName });
+                
                 checkVoteCompletion();
             } else {
+                // Send to host
+                // Also show my own badge locally for instant feedback
+                showVoteOnUI(state.mySelectedSuspect, state.myName);
                 myConn.send(myVoteData);
             }
         }
@@ -1554,6 +1580,18 @@
             
             revealEverything(winner, state.assignments); // For Host
             broadcast(resultData); // For Clients
+        }
+        
+        function forceEndGame() {
+            if(state.isHost) {
+                const resultData = { 
+                    type: 'REVEAL_ALL', 
+                    winner: 'neutral', // Neutral reveal
+                    assignments: state.assignments 
+                };
+                revealEverything('neutral', state.assignments);
+                broadcast(resultData);
+            }
         }
 
         // Local Mode Logic
