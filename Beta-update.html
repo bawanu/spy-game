@@ -974,6 +974,7 @@
                 // Host moved to setup
             }
             else if(data.type === 'START_GAME') {
+                state.players = data.allPlayers; // Fix: Ensure client gets full player list
                 state.myRole = data.roleObj;
                 state.gameTime = data.time;
                 state.currentWord = data.word; 
@@ -1246,6 +1247,7 @@
                     if(playerObj) {
                         conn.send({
                             type: 'START_GAME',
+                            allPlayers: state.players, // Fix: Send full player list for voting UI
                             roleObj: playerObj,
                             time: state.gameTime,
                             word: state.currentWord,
@@ -1468,7 +1470,14 @@
             const grid = $('suspects-grid');
             grid.innerHTML = '';
             
-            state.assignments.forEach(player => {
+            // Fix for Voting List: Use players list for clients who don't have assignments
+            let votingCandidates = state.assignments;
+            if(state.isOnline && !state.isHost) {
+                // Clients don't have roles in assignments, but they have the player list from START_GAME
+                votingCandidates = state.players.map(name => ({ name: name, role: 'unknown' }));
+            }
+
+            votingCandidates.forEach(player => {
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
                 btn.id = `suspect-${player.name}`;
@@ -1620,6 +1629,18 @@
 
             if (state.guessesLeft <= 0 && state.activeSpies > 0) {
                  setTimeout(() => revealEverything('spies'), 1000);
+            }
+        }
+
+        function showVoteOnUI(suspectName, voterName) {
+            const card = document.getElementById(`suspect-${suspectName}`);
+            if(card) {
+                const badge = document.createElement('div');
+                badge.className = 'voter-badge';
+                // Take first 2 chars of voter name
+                badge.innerText = voterName.substring(0,2);
+                card.appendChild(badge);
+                playSfx('pop');
             }
         }
 
