@@ -172,8 +172,11 @@
         .stacked-buttons { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
 
         .tags-container { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
-        .tag { background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .tag { background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; padding-left: 30px;}
         .tag i { opacity: 0.5; cursor: pointer; padding: 4px; }
+        /* Kick Button Style */
+        .kick-btn { position: absolute; left: 2px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; background: rgba(244, 63, 94, 0.2); color: var(--accent); border-radius: 50%; display: grid; place-items: center; cursor: pointer; font-size: 0.7rem; }
+        .kick-btn:hover { background: var(--accent); color: white; }
 
         .section-title { width: 100%; text-align: right; font-size: 0.9rem; color: var(--text-muted); margin: 10px 0; font-weight: 700; max-width: 800px; }
         .topics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; margin-bottom: 10px; }
@@ -212,11 +215,14 @@
         .primary-btn.secondary { background: var(--glass); border: 1px solid var(--glass-border); animation: none; }
         .primary-btn.danger { background: rgba(244, 63, 94, 0.2); border: 1px solid var(--accent); color: var(--accent); animation: none; }
         .primary-btn.danger:hover { background: rgba(244, 63, 94, 0.4); }
+        .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); animation: none; }
+        .primary-btn.success:hover { background: rgba(16, 185, 129, 0.4); }
         
         .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
         .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite ease-in-out; pointer-events: none; }
         .primary-btn:active { transform: scale(0.98); }
         .primary-btn:hover { box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.7); }
+        .primary-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; animation: none; }
         
         .card-wrapper { perspective: 1500px; width: 100%; max-width: 340px; height: 55vh; min-height: 350px; max-height: 550px; margin: 20px 0; transition: all 0.3s ease; }
         @media (min-width: 768px) { .card-wrapper { max-width: 450px; height: 60vh; max-height: 650px; } }
@@ -289,8 +295,12 @@
         .suspect-card:hover { background: rgba(255,255,255,0.1); }
         .suspect-card.eliminated { opacity: 0.3; pointer-events: none; filter: grayscale(1); transform: scale(0.9); }
         .suspect-card.caught { background: var(--accent); border-color: var(--accent); pointer-events: none; }
+        .suspect-card.selected-vote { background: rgba(99, 102, 241, 0.4); border-color: var(--primary); transform: scale(1.02); box-shadow: 0 0 15px rgba(99, 102, 241, 0.5); }
         
         .voter-badge { position: absolute; bottom: 5px; right: 5px; background: var(--primary); width: 24px; height: 24px; border-radius: 50%; font-size: 0.7rem; display: grid; place-items: center; border: 1px solid white; z-index: 10;}
+
+        /* FIXED PAUSE BUTTON CONTAINER */
+        #host-timer-controls { display: flex; justify-content: center; gap: 15px; width: 100%; align-items: center; margin-bottom: 20px; }
 
         .winner-header { text-align: center; margin-top: 20px; }
         .winner-header i { font-size: 3rem; margin-bottom: 10px; }
@@ -392,8 +402,8 @@
                         <span>ڕێکخستن و دەستپێکردن</span> <i class="fas fa-cog"></i>
                     </button>
                     <!-- Stop Server Button -->
-                    <button class="primary-btn danger" onclick="stopServer()" style="margin-top: 5px;">
-                        <span>داخستنی سێرڤەر</span> <i class="fas fa-power-off"></i>
+                    <button id="btn-lock-room" class="primary-btn danger" onclick="toggleRoomLock()" style="margin-top: 5px;">
+                        <span>داخستنی ژوور</span> <i class="fas fa-lock"></i>
                     </button>
                  </div>
                  <div id="client-wait-msg" style="display: none;">
@@ -532,11 +542,11 @@
                 
                 <!-- Only Host Sees These -->
                 <div id="host-timer-controls">
-                    <button class="icon-btn" style="width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); margin-bottom: 30px;" onclick="togglePause()">
+                    <button class="icon-btn" style="width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); margin-bottom: 10px;" onclick="togglePause()">
                         <i class="fas fa-pause" id="pause-icon"></i>
                     </button>
-                    <button class="primary-btn" style="background: var(--accent);" onclick="endGame()">
-                        <span>کۆتایی هێنان بە کات</span> <i class="fas fa-gavel"></i>
+                    <button class="primary-btn" style="background: var(--accent); max-width: 200px;" onclick="endGame()">
+                        <span>کۆتایی هێنان</span> <i class="fas fa-gavel"></i>
                     </button>
                 </div>
                 <div id="client-timer-msg" style="display: none; color: var(--text-muted); font-size: 0.8rem;">
@@ -553,7 +563,7 @@
                     <div style="text-align: center; margin-bottom: 10px;">
                         <i class="fas fa-search" style="font-size: 3rem; color: var(--primary); margin-bottom: 10px;"></i>
                         <h2 style="font-size: 1.5rem;">سیخوڕەکە کێیە؟</h2>
-                        <p class="subtitle" style="margin-bottom: 10px;">لەسەر ناوی گومانلێکراو کلیک بکە</p>
+                        <p class="subtitle" style="margin-bottom: 10px;">گومانلێکراو هەڵبژێرە و دەنگ بدە</p>
                     </div>
                     
                     <!-- ATTEMPTS LEFT DISPLAY -->
@@ -561,14 +571,22 @@
                         <i class="fas fa-bullseye"></i> <span id="attempts-count">0</span> هەوڵ ماوە
                     </div>
 
-                    <div id="voting-status" class="status-box">تکایە گومانلێکراو هەڵبژێرە</div>
+                    <div id="voting-status" class="status-box">تکایە هەمووان دەنگ بدەن</div>
                     <div id="suspects-grid" class="topics-grid"></div>
                     
-                    <!-- Only Host reveals -->
+                    <!-- Online Vote Confirm Button -->
+                    <button id="btn-confirm-vote" class="primary-btn" onclick="confirmVote()" style="display: none; margin-top: 20px;">
+                         <span>ناردنی دەنگ</span> <i class="fas fa-vote-yea"></i>
+                    </button>
+
+                    <!-- Only Host reveals (Visible only in Local Mode) -->
                     <button id="btn-reveal-all" class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything('neutral')">
                          <span>کۆتایی / هەموویان ئاشکرا بکە</span>
                     </button>
-                    <div id="client-reveal-msg" style="display:none; text-align:center; margin-top:10px; opacity:0.6">چاوەڕێی سێرڤەر بە ئەنجامەکان ئاشکرا بکات</div>
+                    
+                    <div id="client-reveal-msg" style="display:none; text-align:center; margin-top:10px; opacity:0.6; font-size: 0.9rem;">
+                        چاوەڕێی دەنگی ئەوانی تر بە...
+                    </div>
                 </div>
                 <!-- Final Results -->
                 <div id="phase-post-reveal" class="result-phase-container" style="display: none;">
@@ -696,7 +714,10 @@
             isHost: false,
             myName: "",
             myRole: null, // {name, role, id}
-            flippedCount: 0 // for host to track
+            flippedCount: 0, // for host to track
+            onlineVotes: {}, // {voter: suspect}
+            mySelectedSuspect: null, // For client voting UI
+            isRoomLocked: false // New Lock State
         };
 
         // --- DOM HELPERS ---
@@ -732,7 +753,7 @@
             state.isOnline = false;
             state.isHost = true; // Local is always host
             
-            // UI Adjustment for Local: Show Exit button, Hide Back button
+            // UI Adjustment for Local
             $('btn-exit').style.display = 'grid';
             $('btn-back-lobby').style.display = 'none';
             $('player-input-section').style.display = 'block';
@@ -752,6 +773,7 @@
             if(peer) { peer.destroy(); peer = null; }
             hostConnections = [];
             myConn = null;
+            state.isRoomLocked = false;
             
             // Clear inputs
             $('player-input').value = '';
@@ -775,6 +797,7 @@
             state.isOnline = true;
             state.isHost = true;
             state.players = [name]; // Start with me
+            state.isRoomLocked = false;
             
             // Get Custom Code or Generate Random
             let customCode = $('room-code-input').value.trim();
@@ -792,13 +815,17 @@
                 renderLobbyPlayers();
                 $('host-controls').style.display = 'flex';
                 $('client-wait-msg').style.display = 'none';
+                
+                // Reset Lock Button State
+                const btn = $('btn-lock-room');
+                btn.className = "primary-btn danger";
+                btn.innerHTML = `<span>داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
             });
 
             peer.on('error', (err) => {
                 console.error(err);
                 if(err.type === 'unavailable-id') {
                     showToast("ئەم کۆدە بەکارهاتووە، تکایە دانەیەکی تر بنووسە");
-                    // Reset state so they can try again
                     state.isOnline = false;
                     state.isHost = false;
                     state.players = [];
@@ -808,18 +835,40 @@
             });
 
             peer.on('connection', (conn) => {
+                // LOCK CHECK
+                if(state.isRoomLocked) {
+                    conn.on('open', () => {
+                        conn.send({ type: 'ROOM_LOCKED_ERROR' });
+                        setTimeout(() => conn.close(), 500);
+                    });
+                    return;
+                }
+
                 hostConnections.push(conn);
                 conn.on('data', (data) => handleHostData(data, conn));
                 conn.on('close', () => {
-                    // Handle disconnect (remove player) - simplified for now
+                    // Handle disconnect
                 });
             });
+        }
+        
+        function toggleRoomLock() {
+            state.isRoomLocked = !state.isRoomLocked;
+            const btn = $('btn-lock-room');
+            if(state.isRoomLocked) {
+                btn.className = "primary-btn success";
+                btn.innerHTML = `<span>کردنەوەی ژوور</span> <i class="fas fa-lock-open"></i>`;
+                showToast("ژوورەکە داخرا. کەس ناتوانێت بێتە ژوورەوە.");
+            } else {
+                btn.className = "primary-btn danger";
+                btn.innerHTML = `<span>داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
+                showToast("ژوورەکە کرایەوە.");
+            }
         }
         
         function stopServer() {
             if(confirm("دڵنیایت دەوێت سێرڤەرەکە داخەیت؟")) {
                 broadcast({ type: 'ROOM_CLOSED' });
-                // Small delay to ensure message sends
                 setTimeout(() => {
                     exitToMainMenu();
                 }, 300);
@@ -851,7 +900,7 @@
                 conn.on('data', (data) => handleClientData(data));
                 
                 conn.on('close', () => {
-                   // Connection closed logic handled inside handleClientData for intentional closes
+                   // Connection closed logic
                 });
 
                 peer.on('error', (err) => {
@@ -864,12 +913,10 @@
         function handleHostData(data, conn) {
             if(data.type === 'JOIN') {
                 if(state.players.includes(data.name)) {
-                    // Handle duplicate name? For now just add index
                     data.name = data.name + "_" + Math.floor(Math.random()*10);
                 }
                 state.players.push(data.name);
-                // Map connection to player name for later
-                conn.playerName = data.name;
+                conn.playerName = data.name; // Tag connection
                 
                 renderLobbyPlayers();
                 broadcast({ type: 'UPDATE_LOBBY', players: state.players });
@@ -878,18 +925,26 @@
                 state.flippedCount++;
                 if(state.flippedCount >= state.players.length) {
                     // All flipped, start timer logic
-                    determineStarter(); // This calculates and shows view-starter
-                    // We need to broadcast starter view
+                    determineStarter(); 
                     const starter = $('starter-name-display').innerText;
                     broadcast({ type: 'SHOW_STARTER', starterName: starter });
                 }
             }
-            else if(data.type === 'VOTE') {
-                // data.suspect, data.voter
-                // Broadcast this vote to everyone so badges show up
-                broadcast({ type: 'VOTE_REGISTERED', suspect: data.suspect, voter: data.voter });
-                // Also show on Host UI
-                showVoteOnUI(data.suspect, data.voter);
+            else if(data.type === 'SUBMIT_VOTE') {
+                // Collect votes
+                if(!state.onlineVotes) state.onlineVotes = {};
+                state.onlineVotes[data.voter] = data.suspect;
+                
+                // Broadcast progress
+                const voteCount = Object.keys(state.onlineVotes).length;
+                const totalPlayers = state.players.length;
+                
+                broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
+                
+                // If everyone voted, calculate result
+                if(voteCount >= totalPlayers) {
+                    processVotingResult();
+                }
             }
         }
 
@@ -899,14 +954,22 @@
                 state.players = data.players;
                 renderLobbyPlayers();
             }
+            else if(data.type === 'KICKED') {
+                showToast("تۆ لە ژوورەکە دەرکرایت");
+                setTimeout(() => exitToMainMenu(), 1000);
+            }
+            else if(data.type === 'ROOM_LOCKED_ERROR') {
+                showToast("ژوورەکە داخراوە، ناتوانیت بچیتە ژوورەوە");
+                peer.destroy();
+                setTimeout(() => exitToMainMenu(), 1000);
+            }
             else if(data.type === 'SETUP_GAME') {
-                // Host moved to setup, we wait
+                // Host moved to setup
             }
             else if(data.type === 'START_GAME') {
-                // data.roleObj {name, role, id}
                 state.myRole = data.roleObj;
                 state.gameTime = data.time;
-                state.currentWord = data.word; // Only needed if citizen
+                state.currentWord = data.word; 
                 state.numSpies = data.spiesCount;
                 state.maxGuesses = data.guesses;
                 
@@ -923,12 +986,10 @@
                  playSfx('victory');
             }
             else if(data.type === 'SYNC_TIMER') {
-                // data.timeLeft, data.running
                 state.timeLeft = data.timeLeft;
                 state.timerRunning = data.running;
                 if(document.getElementById('view-timer').classList.contains('active') === false) {
                      transitionTo('view-timer');
-                     // Ensure button is hidden for client
                      $('host-timer-controls').style.display = 'none';
                      $('client-timer-msg').style.display = 'block';
                 }
@@ -937,18 +998,17 @@
             else if(data.type === 'GAME_OVER') {
                  endGame();
             }
-            else if(data.type === 'VOTE_REGISTERED') {
-                 // Update UI to show who voted
-                 showVoteOnUI(data.suspect, data.voter);
+            else if(data.type === 'VOTE_PROGRESS') {
+                // Update text: 3/5 voted
+                $('voting-status').innerText = `دەنگدان... (${data.count} / ${data.total})`;
             }
-            else if(data.type === 'REVEAL_ALL') {
-                 state.assignments = data.assignments; // Full list
-                 revealEverything(data.winner);
+            else if(data.type === 'VOTE_RESULT') {
+                // data.victim, data.isSpy, data.winner
+                revealEverything(data.winner, data.assignments);
             }
             else if(data.type === 'RETURN_TO_LOBBY') {
-                // Reset basic game state
                 transitionTo('view-lobby-waiting');
-                $('client-wait-msg').style.display = 'block'; // Waiting for host to setup again
+                $('client-wait-msg').style.display = 'block'; 
             }
             else if(data.type === 'ROOM_CLOSED') {
                 showToast("سێرڤەرەکە داخرا!");
@@ -960,23 +1020,48 @@
             hostConnections.forEach(c => c.send(msg));
         }
 
+        // --- LOBBY PLAYERS + KICK LOGIC ---
         function renderLobbyPlayers() {
             const container = $('lobby-players-list');
-            container.innerHTML = state.players.map(p => 
-                `<div class="tag">${p} ${p === state.myName ? '(تۆ)' : ''}</div>`
-            ).join('');
+            container.innerHTML = state.players.map((p, index) => {
+                let html = `<div class="tag">${p} ${p === state.myName ? '(تۆ)' : ''}`;
+                
+                // If Host and not me, add kick button
+                if(state.isHost && p !== state.myName) {
+                    html += `<div class="kick-btn" onclick="kickPlayer(${index})"><i class="fas fa-times"></i></div>`;
+                }
+                
+                html += `</div>`;
+                return html;
+            }).join('');
+        }
+        
+        function kickPlayer(index) {
+            const playerToKick = state.players[index];
+            if(!playerToKick) return;
+            
+            // Remove from list
+            state.players.splice(index, 1);
+            
+            // Find connection and send KICK message
+            const connIdx = hostConnections.findIndex(c => c.playerName === playerToKick);
+            if(connIdx !== -1) {
+                const conn = hostConnections[connIdx];
+                conn.send({ type: 'KICKED' });
+                // Remove connection
+                hostConnections.splice(connIdx, 1);
+            }
+            
+            renderLobbyPlayers();
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players });
         }
 
         function setupOnlineGame() {
             transitionTo('view-setup');
-            
-            // UI Adjustment for Online Host: Show Back button, Hide Exit button
             $('btn-exit').style.display = 'none';
             $('btn-back-lobby').style.display = 'grid';
-
-            // Hide add player button inputs
             $('player-input-section').style.display = 'none';
-            renderTags(); // Just to show list
+            renderTags();
             broadcast({ type: 'SETUP_GAME' });
         }
         
@@ -990,10 +1075,10 @@
                     // Send everyone back to lobby
                     broadcast({ type: 'RETURN_TO_LOBBY' });
                     transitionTo('view-lobby-waiting');
-                    // Reset game specific vars but keep connections
+                    // Reset game vars
                     state.flippedCount = 0;
+                    state.onlineVotes = {};
                 } else {
-                    // Client clicked? (Shouldn't happen as button hidden, but safe fallback)
                     showToast("تەنها سێرڤەر دەتوانێت یاری نوێ بکات");
                 }
             } else {
@@ -1057,15 +1142,13 @@
 
         function renderTags() {
             const c = $('players-container');
-            // Allow delete only if local or if host removing someone (feature for later)
-            // For now, in online, remove 'X'
-            const showX = !state.isOnline || (state.isOnline && state.isHost && false); 
+            // Allow delete only if local 
+            const showX = !state.isOnline; 
             
             c.innerHTML = state.players.map((p,i) => 
                 `<div class="tag">${p} ${showX ? `<i class="fas fa-times" onclick="removePlayer(${i})"></i>` : ''}</div>`
             ).join('');
             
-            // Adjust spy count limit
             const spyLimit = Math.max(1, Math.floor(state.players.length / 2));
             if(parseInt($('spy-count').innerText) > spyLimit) $('spy-count').innerText = spyLimit;
         }
@@ -1139,6 +1222,7 @@
             if (state.isOnline) {
                 // Host logic: Send roles to everyone
                 state.flippedCount = 0;
+                state.onlineVotes = {};
                 
                 // My Role (Host)
                 const hostObj = state.assignments.find(a => a.name === state.myName);
@@ -1172,8 +1256,10 @@
             }
         }
 
-        // --- CARD LOGIC ---
+        // --- CARD LOGIC (Fixed Glitch) ---
         let isFlipped = false;
+        let isAnimating = false; // Prevents rapid clicks
+
         function showCardScreen() { transitionTo('view-cards'); updateCardView(); }
         
         function updateCardView() { // LOCAL
@@ -1209,38 +1295,48 @@
         }
 
         function flipCard() {
+            if(isAnimating) return; // Prevent glitch
+            isAnimating = true;
+
             const card = $('the-card');
             if(!isFlipped) {
-                playSfx('flip'); card.classList.add('flipped'); isFlipped = true;
+                playSfx('flip'); 
+                card.classList.add('flipped'); 
+                isFlipped = true;
                 triggerVibrate(50);
+                setTimeout(() => isAnimating = false, 600);
             } else {
                 // Flipped Back
-                playSfx('flip'); card.classList.remove('flipped'); isFlipped = false;
+                playSfx('flip'); 
+                card.classList.remove('flipped'); 
+                isFlipped = false;
                 
-                if (state.isOnline) {
-                    // Lock card and wait
-                    $('the-card').style.pointerEvents = 'none';
-                    $('waiting-others-msg').style.display = 'block';
-                    
-                    if(state.isHost) {
-                        state.flippedCount++; // Host counts himself
-                        if(state.flippedCount >= state.players.length) {
-                             determineStarter();
-                             broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
+                setTimeout(() => {
+                    isAnimating = false;
+                    if (state.isOnline) {
+                        // Lock card and wait
+                        $('the-card').style.pointerEvents = 'none';
+                        $('waiting-others-msg').style.display = 'block';
+                        
+                        if(state.isHost) {
+                            state.flippedCount++; // Host counts himself
+                            if(state.flippedCount >= state.players.length) {
+                                determineStarter();
+                                broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
+                            }
+                        } else {
+                            // Send signal to host
+                            myConn.send({ type: 'FLIPPED_BACK' });
                         }
                     } else {
-                        // Send signal to host
-                        myConn.send({ type: 'FLIPPED_BACK' });
+                        // Local logic
+                        setTimeout(() => {
+                            state.cardIndex++;
+                            if(state.cardIndex >= state.assignments.length) determineStarter();
+                            else updateCardView();
+                        }, 200);
                     }
-
-                } else {
-                    // Local logic
-                    setTimeout(() => {
-                        state.cardIndex++;
-                        if(state.cardIndex >= state.assignments.length) determineStarter();
-                        else updateCardView();
-                    }, 600);
-                }
+                }, 600);
             }
         }
         
@@ -1256,8 +1352,7 @@
         function startTimerView() { 
             // In Online, only Host triggers this via button "باشە"
             if(state.isOnline && !state.isHost) {
-                 // Clients wait for signal
-                 $('start-btn').style.display='none'; // safety
+                 $('start-btn').style.display='none'; 
                  return;
             }
             transitionTo('view-timer'); 
@@ -1277,19 +1372,16 @@
                 $('host-timer-controls').style.display = 'none';
                 $('client-timer-msg').style.display = 'block';
             } else {
-                $('host-timer-controls').style.display = 'block';
+                $('host-timer-controls').style.display = 'flex'; // Fixed display flex
                 $('client-timer-msg').style.display = 'none';
             }
 
-            // Loop logic (Only Host or Local runs the interval)
-            // Clients just update via broadcast or local interpolation
             if(!state.isOnline || state.isHost) {
                 state.timerInt = setInterval(() => {
                     if(!state.timerRunning) return;
                     state.timeLeft--;
                     
                     if(state.isOnline && state.isHost) {
-                        // Sync clients
                         broadcast({ type: 'SYNC_TIMER', timeLeft: state.timeLeft, running: true, totalTime: totalTime });
                     }
                     
@@ -1333,57 +1425,139 @@
             $('phase-voting').style.display = 'flex';
             $('phase-post-reveal').style.display = 'none';
             $('voting-status').className = 'status-box';
-            $('voting-status').innerText = "تکایە گومانلێکراو هەڵبژێرە";
             
-            state.guessesLeft = state.maxGuesses;
-            $('attempts-count').innerText = state.guessesLeft;
-            
-            state.activeSpies = state.numSpies;
-            state.activeCitizens = state.players.length - state.numSpies;
-            
-            // Hide host buttons for clients
-            if(state.isOnline && !state.isHost) {
+            state.mySelectedSuspect = null; // Reset selection
+
+            if(state.isOnline) {
+                $('attempts-display').style.display = 'none'; // No guesses left logic in online new mode
+                $('voting-status').innerText = "تکایە هەمووان دەنگ بدەن";
+                $('btn-confirm-vote').style.display = 'block';
+                $('btn-confirm-vote').disabled = true;
                 $('btn-reveal-all').style.display = 'none';
-                $('client-reveal-msg').style.display = 'block';
-            } else {
-                $('btn-reveal-all').style.display = 'block';
                 $('client-reveal-msg').style.display = 'none';
+            } else {
+                // Local
+                state.guessesLeft = state.maxGuesses;
+                $('attempts-display').style.display = 'flex';
+                $('attempts-count').innerText = state.guessesLeft;
+                state.activeSpies = state.numSpies;
+                state.activeCitizens = state.players.length - state.numSpies;
+                $('voting-status').innerText = "تکایە گومانلێکراو هەڵبژێرە";
+                $('btn-confirm-vote').style.display = 'none';
+                $('btn-reveal-all').style.display = 'block';
             }
 
             const grid = $('suspects-grid');
             grid.innerHTML = '';
             
-            // Use assignments array to generate list (synced)
             state.assignments.forEach(player => {
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
-                btn.id = `suspect-${player.name}`; // ID for finding it later
+                btn.id = `suspect-${player.name}`;
                 btn.innerHTML = `<i class="fas fa-user"></i><div>${player.name}</div>`;
-                btn.onclick = () => checkSuspect(player, btn);
+                
+                if(state.isOnline) {
+                    btn.onclick = () => selectSuspectOnline(player.name, btn);
+                } else {
+                    btn.onclick = () => checkSuspectLocal(player, btn);
+                }
                 grid.appendChild(btn);
             });
         }
 
-        function checkSuspect(player, btnElement) {
-            // ONLINE VOTING
-            if(state.isOnline) {
-                // Anyone can vote now
-                 const myVoteData = { type: 'VOTE', suspect: player.name, voter: state.myName };
-                 
-                 // Show my own vote instantly
-                 showVoteOnUI(player.name, state.myName);
-                 
-                 if(state.isHost) {
-                     // I am host, process directly and tell everyone
-                     broadcast({ type: 'VOTE_REGISTERED', suspect: player.name, voter: state.myName });
-                 } else {
-                     // Tell host I voted
-                     myConn.send(myVoteData);
-                 }
-                 return; // In online, clicking just registers vote, Host decides when to reveal manually
-            }
+        // Online: Step 1 - Select User
+        function selectSuspectOnline(suspectName, btnElement) {
+            // Remove selection from others
+            document.querySelectorAll('.suspect-card').forEach(el => el.classList.remove('selected-vote'));
+            
+            // Add to this
+            btnElement.classList.add('selected-vote');
+            state.mySelectedSuspect = suspectName;
+            
+            // Enable button
+            $('btn-confirm-vote').disabled = false;
+            playSfx('click');
+        }
 
-            // LOCAL LOGIC (Pass & Play)
+        // Online: Step 2 - Confirm Vote
+        function confirmVote() {
+            if(!state.mySelectedSuspect) return;
+            
+            // UI Feedback
+            $('btn-confirm-vote').innerText = "چاوەڕوانی ئەوانیت...";
+            $('btn-confirm-vote').disabled = true;
+            document.querySelectorAll('.suspect-card').forEach(el => el.style.pointerEvents = 'none'); // Lock grid
+
+            const myVoteData = { type: 'SUBMIT_VOTE', suspect: state.mySelectedSuspect, voter: state.myName };
+            
+            if(state.isHost) {
+                // I am host, process directly
+                if(!state.onlineVotes) state.onlineVotes = {};
+                state.onlineVotes[state.myName] = state.mySelectedSuspect;
+                checkVoteCompletion();
+            } else {
+                myConn.send(myVoteData);
+            }
+        }
+        
+        // Host: Check if everyone voted
+        function checkVoteCompletion() {
+            const voteCount = Object.keys(state.onlineVotes).length;
+            const totalPlayers = state.players.length;
+            
+            // Broadcast progress to everyone
+            broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
+            $('voting-status').innerText = `دەنگدان... (${voteCount} / ${totalPlayers})`;
+
+            if(voteCount >= totalPlayers) {
+                setTimeout(processVotingResult, 1000);
+            }
+        }
+
+        function processVotingResult() {
+            // Calculate votes
+            const counts = {};
+            Object.values(state.onlineVotes).forEach(suspect => {
+                counts[suspect] = (counts[suspect] || 0) + 1;
+            });
+            
+            // Find victim (Simple logic: highest vote)
+            let victim = null;
+            let maxVotes = -1;
+            
+            for(const [suspect, count] of Object.entries(counts)) {
+                if(count > maxVotes) {
+                    maxVotes = count;
+                    victim = suspect;
+                }
+            }
+            
+            // Check if victim is Spy
+            const victimRole = state.assignments.find(p => p.name === victim).role;
+            let winner = 'spies'; // Default spies win
+            let isSpy = false;
+
+            if(victimRole === 'spy') {
+                isSpy = true;
+                // If single spy game, Citizens win. If multiple, we might need more logic but let's keep simple: Find Spy = Win
+                winner = 'citizens';
+            }
+            
+            // Broadcast result
+            const resultData = { 
+                type: 'VOTE_RESULT', 
+                victim: victim, 
+                isSpy: isSpy, 
+                winner: winner, 
+                assignments: state.assignments 
+            };
+            
+            revealEverything(winner, state.assignments); // For Host
+            broadcast(resultData); // For Clients
+        }
+
+        // Local Mode Logic
+        function checkSuspectLocal(player, btnElement) {
             const statusBox = $('voting-status');
             if(btnElement.classList.contains('caught') || btnElement.classList.contains('eliminated')) return;
 
@@ -1411,24 +1585,9 @@
             }
         }
 
-        function showVoteOnUI(suspectName, voterName) {
-            const card = document.getElementById(`suspect-${suspectName}`);
-            if(card) {
-                // Check if this user already voted (remove old badge? Optional, but keeping simple for now)
-                const badge = document.createElement('div');
-                badge.className = 'voter-badge';
-                // Take first 2 chars of voter name
-                badge.innerText = voterName.substring(0,2);
-                card.appendChild(badge);
-                playSfx('pop');
-            }
-        }
-
-        function revealEverything(winner) {
-            if(state.isOnline && state.isHost) {
-                broadcast({ type: 'REVEAL_ALL', winner: winner, assignments: state.assignments });
-            }
-
+        function revealEverything(winner, assignmentsList = null) {
+            const currentAssignments = assignmentsList || state.assignments;
+            
             const winDisplay = $('winner-display');
             winDisplay.innerHTML = '';
             if (winner === 'citizens') {
@@ -1445,7 +1604,7 @@
             }
 
             $('result-word').innerText = state.currentWord || "Error";
-            const spies = state.assignments.filter(a => a.role === 'spy');
+            const spies = currentAssignments.filter(a => a.role === 'spy');
             $('spies-list').innerHTML = spies.map(s => 
                 `<div class="spy-reveal"><span style="font-weight:bold; color:white">${s.name}</span> <i class="fas fa-user-secret"></i></div>`
             ).join('');
