@@ -313,6 +313,8 @@
         <div id="view-setup" class="view active">
             <div class="top-bar">
                 <div class="icon-btn" onclick="toggleSound()" id="btn-sound"><i class="fas fa-volume-up"></i></div>
+                <!-- HAPTICS BUTTON ADDED HERE -->
+                <div class="icon-btn" onclick="toggleHaptics()" id="btn-haptics"><i class="fas fa-mobile-alt"></i></div>
                 <div class="icon-btn" onclick="toggleHelp()"><i class="fas fa-question"></i></div>
             </div>
 
@@ -577,6 +579,7 @@
         const state = {
             players: [], numSpies: 1, gameTime: 5, maxGuesses: 1, guessesLeft: 1, manualGuessSet: false,
             selectedCats: new Set([]), isSoundOn: true,
+            isHapticsOn: true, // <-- NEW STATE FOR HAPTICS
             currentWord: '', assignments: [], activeSpies: 0, activeCitizens: 0, cardIndex: 0, timerRunning: false, timeLeft: 0, timerInt: null
         };
 
@@ -606,9 +609,9 @@
             toast.appendChild(text);
             container.appendChild(toast);
             
-            // Play error sound
+            // Play error sound & Vibrate
             playSfx('pop'); 
-            if(navigator.vibrate) navigator.vibrate(200);
+            triggerVibrate(200);
 
             // Remove after 3s
             setTimeout(() => {
@@ -649,7 +652,7 @@
                 }
             }
             playSfx('click');
-            if(navigator.vibrate) navigator.vibrate(10);
+            triggerVibrate(10);
         }
 
         function addPlayer() {
@@ -786,7 +789,7 @@
             const card = $('the-card');
             if(!isFlipped) {
                 playSfx('flip'); card.classList.add('flipped'); isFlipped = true;
-                if(navigator.vibrate) navigator.vibrate(50);
+                triggerVibrate(50);
             } else {
                 playSfx('flip'); card.classList.remove('flipped'); isFlipped = false;
                 setTimeout(() => {
@@ -842,7 +845,7 @@
 
         function endGame() {
             clearInterval(state.timerInt);
-            try { playSfx('alarm'); if(navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]); } catch(e){}
+            try { playSfx('alarm'); triggerVibrate([200, 100, 200, 100, 500]); } catch(e){}
             initVotingPhase();
             transitionTo('view-results');
         }
@@ -882,7 +885,7 @@
             $('attempts-count').innerText = state.guessesLeft;
 
             if (player.role === 'spy') {
-                playSfx('victory'); if(navigator.vibrate) navigator.vibrate(200);
+                playSfx('victory'); triggerVibrate(200);
                 state.activeSpies--;
                 btnElement.classList.add('caught');
                 btnElement.innerHTML = `<i class="fas fa-check"></i><div>${player.name}</div>`;
@@ -890,7 +893,7 @@
                 statusBox.innerText = `ئافەرین! ${player.name} سیخوڕ بوو!`;
                 if (state.activeSpies === 0) setTimeout(() => revealEverything('citizens'), 1000);
             } else {
-                playSfx('pop'); if(navigator.vibrate) navigator.vibrate(50);
+                playSfx('pop'); triggerVibrate(50);
                 state.activeCitizens--;
                 btnElement.classList.add('eliminated');
                 statusBox.className = 'status-box error';
@@ -931,10 +934,24 @@
         }
 
         function goToSetup() { state.timerRunning = false; clearInterval(state.timerInt); transitionTo('view-setup'); }
-        function toggleSound() { state.isSoundOn = !state.isSoundOn; $('btn-sound').style.opacity = state.isSoundOn?1:0.5; $('btn-sound').innerHTML=state.isSoundOn?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; }
+        
+        // --- BUTTON TOGGLES ---
+        function toggleSound() { 
+            state.isSoundOn = !state.isSoundOn; 
+            $('btn-sound').style.opacity = state.isSoundOn?1:0.5; 
+            $('btn-sound').innerHTML=state.isSoundOn?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; 
+        }
+
+        function toggleHaptics() {
+            state.isHapticsOn = !state.isHapticsOn;
+            $('btn-haptics').style.opacity = state.isHapticsOn ? 1 : 0.5;
+            $('btn-haptics').innerHTML = state.isHapticsOn ? '<i class="fas fa-mobile-alt"></i>' : '<i class="fas fa-ban"></i>';
+            if(state.isHapticsOn) triggerVibrate(50);
+        }
+        
         function toggleHelp() { const m=$('help-modal'); if(m.style.display==='flex'){m.classList.remove('open');setTimeout(()=>m.style.display='none',300)}else{m.style.display='flex';requestAnimationFrame(()=>m.classList.add('open'));} }
 
-        // --- ENHANCED AUDIO ENGINE ---
+        // --- ENHANCED AUDIO & HAPTIC ENGINE ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         // Helper to create noise buffer
@@ -1038,6 +1055,12 @@
                 osc.stop(now + 0.6);
             }
         }
+
+        function triggerVibrate(pattern) {
+            if (state.isHapticsOn && navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        }
         
         // Particles
         const pC=document.getElementById('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
@@ -1048,8 +1071,6 @@
             .then(() => console.log('Service Worker registered'))
             .catch(err => console.log('Service Worker registration failed:', err));
         }
-        
-
     </script>
 </body>
 </html>
