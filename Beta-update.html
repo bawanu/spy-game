@@ -6,7 +6,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سیخوڕ</title>
+    <title>سیخوڕ - Spy Game</title>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap" rel="stylesheet">
@@ -768,6 +768,8 @@
         }
 
         function exitToMainMenu() {
+            clearSession(); // CLEAR SESSION ON EXIT
+
             // STOP SERVER SIGNAL if Host
             if(state.isOnline && state.isHost) {
                 broadcast({ type: 'ROOM_CLOSED' });
@@ -795,28 +797,38 @@
         let myConn = null; // Client connection to host
         let hostConnections = []; // Host list of connections
 
-        function createOnlineRoom() {
+        // MODIFIED: Accepts isRestore
+        function createOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
+            
+            // Logic: If restoring, we might already have the code in the input
+            let customCode = $('room-code-input').value.trim();
+            
             if(!name) return showToast("تکایە ناوەکەت بنووسە");
+            
+            // Generate Random if empty and NOT restoring
+            if(!customCode) {
+                customCode = Math.floor(1000 + Math.random() * 9000).toString();
+                $('room-code-input').value = customCode; // Update input so it saves correctly
+            }
             
             state.myName = name;
             state.isOnline = true;
             state.isHost = true;
-            state.players = [name]; // Start with me
+            state.players = [name]; 
             state.isRoomLocked = false;
             
-            // Get Custom Code or Generate Random
-            let customCode = $('room-code-input').value.trim();
-            if(!customCode) {
-                // Generate Random if empty
-                customCode = Math.floor(1000 + Math.random() * 9000).toString();
-            }
-            
+            // SAVE SESSION HERE
+            saveSession(true, name, customCode);
+
+            // If Peer already exists (rare edge case), destroy it first
+            if(peer) peer.destroy();
+
             peer = new Peer("spygame-" + customCode);
             
             peer.on('open', (id) => {
                 console.log('My peer ID is: ' + id);
-                $('display-room-code').innerText = customCode; // Show clean code without prefix
+                $('display-room-code').innerText = customCode;
                 transitionTo('view-lobby-waiting');
                 renderLobbyPlayers();
                 $('host-controls').style.display = 'flex';
@@ -826,34 +838,35 @@
                 const btn = $('btn-lock-room');
                 btn.className = "primary-btn danger";
                 btn.innerHTML = `<span>داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
+
+                if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
             });
 
             peer.on('error', (err) => {
                 console.error(err);
                 if(err.type === 'unavailable-id') {
-                    showToast("ئەم کۆدە بەکارهاتووە، تکایە دانەیەکی تر بنووسە");
-                    state.isOnline = false;
-                    state.isHost = false;
-                    state.players = [];
-                    peer = null;
+                    // If refreshing quickly, the ID might still be 'taken' by the previous session
+                    if(isRestore) {
+                         showToast("چرکەیەک چاوەڕێ بە، پەیوەندی دروست دەبێتەوە...");
+                         setTimeout(() => createOnlineRoom(true), 1500); // Retry logic
+                    } else {
+                         showToast("ئەم کۆدە بەکارهاتووە، تکایە دانەیەکی تر بنووسە");
+                         clearSession(); // Clear if failed
+                    }
                 }
                 else showToast("هەڵەی پەیوەندی: دڵنیابە ئینتەرنێت هەیە");
             });
 
             peer.on('connection', (conn) => {
-                // LOCK CHECK
                 if(state.isRoomLocked) {
-                    conn.on('open', () => {
-                        conn.send({ type: 'ROOM_LOCKED_ERROR' });
-                        setTimeout(() => conn.close(), 500);
-                    });
+                    conn.on('open', () => { conn.send({ type: 'ROOM_LOCKED_ERROR' }); setTimeout(() => conn.close(), 500); });
                     return;
                 }
-
                 hostConnections.push(conn);
                 conn.on('data', (data) => handleHostData(data, conn));
+                // Remove connection on close
                 conn.on('close', () => {
-                    // Handle disconnect
+                     hostConnections = hostConnections.filter(c => c !== conn);
                 });
             });
         }
@@ -881,36 +894,43 @@
             }
         }
 
-        function joinOnlineRoom() {
+        // MODIFIED: Accepts isRestore
+        function joinOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
             const code = $('room-code-input').value.trim();
             if(!name || !code) return showToast("ناو و کۆد بنووسە");
+
+            // SAVE SESSION HERE
+            saveSession(false, name, code);
 
             state.myName = name;
             state.isOnline = true;
             state.isHost = false;
 
-            peer = new Peer(); // Auto random ID
+            if(peer) peer.destroy();
+
+            peer = new Peer(); 
             peer.on('open', (id) => {
                 const conn = peer.connect("spygame-" + code);
                 conn.on('open', () => {
                     myConn = conn;
-                    // Send Join Request
-                    conn.send({ type: 'JOIN', name: name });
+                    // Send Join Request with restore flag
+                    conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
+                    
                     transitionTo('view-lobby-waiting');
                     $('display-room-code').innerText = code;
                     $('host-controls').style.display = 'none';
                     $('client-wait-msg').style.display = 'block';
+                    
+                    if(isRestore) showToast("گەڕایتەوە ناو یاری");
                 });
                 
                 conn.on('data', (data) => handleClientData(data));
                 
-                conn.on('close', () => {
-                   // Connection closed logic
-                });
-
                 peer.on('error', (err) => {
-                    showToast("کۆدەکە هەڵەیە یان ئینتەرنێت نییە");
+                    clearSession(); // Clear if room not found
+                    showToast("کۆدەکە هەڵەیە یان سێرڤەر نەماوە");
+                    exitToMainMenu();
                 });
             });
         }
@@ -918,14 +938,46 @@
         // HOST HANDLERS
         function handleHostData(data, conn) {
             if(data.type === 'JOIN') {
-                if(state.players.includes(data.name)) {
-                    data.name = data.name + "_" + Math.floor(Math.random()*10);
+                // Check if player is already in list (Rejoining)
+                const isRejoining = state.players.includes(data.name);
+
+                if (!isRejoining) {
+                     state.players.push(data.name);
+                     conn.playerName = data.name; 
+                     renderLobbyPlayers();
+                     broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+                } else {
+                     // If rejoining, just update the connection reference
+                     conn.playerName = data.name;
+                     // Remove old stale connection for this name if exists
+                     hostConnections = hostConnections.filter(c => c.playerName !== data.name || c === conn);
                 }
-                state.players.push(data.name);
-                conn.playerName = data.name; // Tag connection
-                
-                renderLobbyPlayers();
-                broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+
+                // CRITICAL FIX: If game is ALREADY RUNNING, send game state to this specific user
+                if (state.currentWord && state.assignments.length > 0) {
+                    const playerObj = state.assignments.find(a => a.name === data.name);
+                    if (playerObj) {
+                        // Send Role
+                        conn.send({
+                            type: 'START_GAME',
+                            roleObj: playerObj,
+                            time: state.gameTime,
+                            word: state.currentWord,
+                            spiesCount: state.numSpies,
+                            guesses: state.maxGuesses
+                        });
+
+                        // If Timer is running, sync it
+                        if (state.timerRunning) {
+                             conn.send({ 
+                                 type: 'SYNC_TIMER', 
+                                 timeLeft: state.timeLeft, 
+                                 running: true, 
+                                 totalTime: state.gameTime * 60 
+                             });
+                        }
+                    }
+                }
             }
             else if(data.type === 'FLIPPED_BACK') {
                 state.flippedCount++;
@@ -962,11 +1014,13 @@
             }
             else if(data.type === 'KICKED') {
                 showToast("تۆ لە ژوورەکە دەرکرایت");
+                clearSession();
                 setTimeout(() => exitToMainMenu(), 1000);
             }
             else if(data.type === 'ROOM_LOCKED_ERROR') {
                 showToast("ژوورەکە داخراوە، ناتوانیت بچیتە ژوورەوە");
                 peer.destroy();
+                clearSession();
                 setTimeout(() => exitToMainMenu(), 1000);
             }
             else if(data.type === 'SETUP_GAME') {
@@ -1018,6 +1072,7 @@
             }
             else if(data.type === 'ROOM_CLOSED') {
                 showToast("سێرڤەرەکە داخرا!");
+                clearSession();
                 setTimeout(() => exitToMainMenu(), 1500);
             }
         }
@@ -1780,6 +1835,43 @@
         // Particles
         const pC=document.getElementById('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
         
+        // --- NEW: SESSION MANAGEMENT (Fix for Refresh Issue) ---
+
+        function saveSession(isHost, name, code) {
+            sessionStorage.setItem('spy_is_host', isHost);
+            sessionStorage.setItem('spy_name', name);
+            sessionStorage.setItem('spy_room_code', code);
+        }
+
+        function clearSession() {
+            sessionStorage.removeItem('spy_is_host');
+            sessionStorage.removeItem('spy_name');
+            sessionStorage.removeItem('spy_room_code');
+        }
+
+        function checkRestoreSession() {
+            const code = sessionStorage.getItem('spy_room_code');
+            const name = sessionStorage.getItem('spy_name');
+            const isHost = sessionStorage.getItem('spy_is_host') === 'true';
+
+            if (code && name) {
+                // Restore Inputs
+                $('my-name-input').value = name;
+                $('room-code-input').value = code;
+
+                console.log("Restoring session...", {isHost, name, code});
+
+                if (isHost) {
+                    createOnlineRoom(true); 
+                } else {
+                    joinOnlineRoom(true);
+                }
+            }
+        }
+
+        // Run this immediately on load
+        window.addEventListener('load', checkRestoreSession);
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js')
             .then(() => console.log('Service Worker registered'))
