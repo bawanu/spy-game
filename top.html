@@ -1860,6 +1860,9 @@
             } else if(state.gamePhase === 'SETUP') {
                 transitionTo('view-setup');
                 renderTags();
+            } else if(state.gamePhase === 'LOBBY') {
+                // Fix for missing lobby view on refresh
+                transitionTo('view-lobby-waiting');
             }
         }
     }
