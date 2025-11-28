@@ -178,6 +178,11 @@
         .kick-btn { position: absolute; left: 2px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; background: rgba(244, 63, 94, 0.2); color: var(--accent); border-radius: 50%; display: grid; place-items: center; cursor: pointer; font-size: 0.7rem; }
         .kick-btn:hover { background: var(--accent); color: white; }
 
+        /* Online Status Dots */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 5px; }
+        .status-dot.online { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
+        .status-dot.offline { background-color: var(--accent); opacity: 0.5; }
+
         .section-title { width: 100%; text-align: right; font-size: 0.9rem; color: var(--text-muted); margin: 10px 0; font-weight: 700; max-width: 800px; }
         .topics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; margin-bottom: 10px; }
         @media (min-width: 600px) { .topics-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); } }
@@ -735,6 +740,7 @@
             onlineVotes: {}, 
             mySelectedSuspect: null, 
             isRoomLocked: false,
+            onlineStatus: {}, // NEW: Tracks who is online
             // NEW: GAME PHASE TRACKING
             gamePhase: 'LOBBY' // 'LOBBY', 'SETUP', 'CARDS', 'TIMER', 'VOTING'
         };
@@ -797,6 +803,7 @@
             state.isOnline = false;
             state.gamePhase = 'LOBBY';
             state.isRoomLocked = false;
+            state.onlineStatus = {};
             
             // Clear inputs
             $('player-input').value = '';
@@ -827,7 +834,10 @@
             state.myName = name;
             state.isOnline = true;
             state.isHost = true;
-            if(!isRestore) state.players = [name]; // Only reset if new
+            if(!isRestore) {
+                state.players = [name];
+                state.onlineStatus = { [name]: true };
+            }
             
             saveSession(true, name, customCode);
             if(peer) peer.destroy();
@@ -841,19 +851,21 @@
                 // RESTORE HOST STATE IF EXISTS
                 if(isRestore) {
                     restoreHostGameState();
+                    // Mark self as online, others as offline (until they reconnect)
+                    state.onlineStatus[state.myName] = true;
+                    // Reset status of others to false until they rejoin
+                    state.players.forEach(p => { if(p !== state.myName) state.onlineStatus[p] = false; });
+                    if(state.gamePhase === 'LOBBY') renderLobbyPlayers();
                 } else {
                     transitionTo('view-lobby-waiting');
                 }
 
-                renderLobbyPlayers();
+                if(!isRestore || state.gamePhase === 'LOBBY') renderLobbyPlayers();
                 $('host-controls').style.display = 'flex';
                 $('client-wait-msg').style.display = 'none';
                 
                 updateLockBtnUI();
                 if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
-
-                // Ensure state is saved immediately to prevent sync issues
-                saveHostGameState();
             });
 
             peer.on('error', (err) => {
@@ -874,6 +886,12 @@
                 conn.on('data', (data) => handleHostData(data, conn));
                 conn.on('close', () => {
                      hostConnections = hostConnections.filter(c => c !== conn);
+                     // Mark as offline
+                     if(conn.playerName) {
+                         state.onlineStatus[conn.playerName] = false;
+                         broadcast({ type: 'UPDATE_STATUS', status: state.onlineStatus });
+                         if(state.gamePhase === 'LOBBY') renderLobbyPlayers();
+                     }
                 });
             });
         }
@@ -936,7 +954,28 @@
         // --- HOST DATA HANDLER (The Brain) ---
         function handleHostData(data, conn) {
             if(data.type === 'JOIN') {
-                const isKnown = state.players.includes(data.name);
+                // CHECK FOR DUPLICATE NAMES
+                let finalName = data.name;
+                const isRejoining = data.isRejoining;
+                
+                // If not rejoining, ensure unique name
+                if (!isRejoining && state.players.includes(finalName)) {
+                    let counter = 1;
+                    while(state.players.includes(finalName + '_' + counter)) {
+                        counter++;
+                    }
+                    finalName = finalName + '_' + counter;
+                }
+                
+                // If rejoining, check if name exists, if not (weird case), treat as new or duplicate logic
+                // For simplicity, we assume rejoining sends the exact name they had.
+
+                // Send back the assigned name to client
+                conn.send({ type: 'NAME_ACCEPTED', name: finalName });
+                conn.playerName = finalName; 
+                state.onlineStatus[finalName] = true; // Mark as online
+
+                const isKnown = state.players.includes(finalName);
                 
                 // 1. LOCK CHECK (Allow if known player)
                 if (state.isRoomLocked && !isKnown) {
@@ -945,25 +984,15 @@
                      return;
                 }
 
-                // 2. NAME DUPLICATION CHECK & SUFFIX LOGIC
-                // Even if known, we re-verify name to ensure connections map correctly
-                let finalName = data.name;
-                
+                // 2. Add to list if new
                 if (!isKnown) {
-                     // New player - check duplicates
-                     finalName = getUniqueName(data.name, state.players);
                      state.players.push(finalName);
-                     broadcast({ type: 'UPDATE_LOBBY', players: state.players });
-                     saveHostGameState(); // Save new player list
+                     saveHostGameState(); 
                 } 
                 
-                conn.playerName = finalName; // Bind actual unique name to connection
-
-                // Inform the client of their assigned name (in case it changed)
-                conn.send({ type: 'YOUR_NAME', name: finalName });
-
-                // Update lobby for this specific user immediately
-                conn.send({ type: 'UPDATE_LOBBY', players: state.players });
+                // Broadcast updates
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+                broadcast({ type: 'UPDATE_STATUS', status: state.onlineStatus });
 
                 // 3. IMMEDIATE GAME RESTORE (Sync State)
                 if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
@@ -979,19 +1008,18 @@
                             spiesCount: state.numSpies,
                             guesses: state.maxGuesses,
                             timeLeft: state.timeLeft,
-                            players: state.players, // FIX: MUST SEND PLAYERS LIST
-                            assignments: state.assignments, // Send for voting
-                            votes: state.onlineVotes // Send current votes
+                            players: state.players, 
+                            assignments: state.assignments, 
+                            votes: state.onlineVotes,
+                            status: state.onlineStatus
                         });
                     }
                 } else {
-                    // Just update lobby
                     renderLobbyPlayers();
                 }
             }
             else if(data.type === 'FLIPPED_BACK') {
                 state.flippedCount++;
-                saveHostGameState(); // Save progress
                 if(state.flippedCount >= state.players.length) {
                     determineStarter(); 
                     const starter = $('starter-name-display').innerText;
@@ -1011,26 +1039,18 @@
                 }
             }
         }
-        
-        // Helper to generate unique names (Ali, Ali_1, Ali_2)
-        function getUniqueName(baseName, currentList) {
-            if(!currentList.includes(baseName)) return baseName;
-            
-            let counter = 1;
-            let newName = `${baseName}_${counter}`;
-            while(currentList.includes(newName)) {
-                counter++;
-                newName = `${baseName}_${counter}`;
-            }
-            return newName;
-        }
 
         // --- CLIENT DATA HANDLER ---
         function handleClientData(data) {
-            if(data.type === 'YOUR_NAME') {
-                // Update local name if server changed it (duplicate handling)
+            if(data.type === 'NAME_ACCEPTED') {
                 state.myName = data.name;
+                // Update session storage if name changed
+                sessionStorage.setItem('spy_name', data.name);
                 $('my-name-input').value = data.name;
+            }
+            else if(data.type === 'UPDATE_STATUS') {
+                state.onlineStatus = data.status;
+                if(state.gamePhase === 'LOBBY') renderLobbyPlayers();
             }
             else if(data.type === 'UPDATE_LOBBY') {
                 state.players = data.players;
@@ -1056,8 +1076,8 @@
             }
             else if(data.type === 'RESTORE_GAME') {
                 // RESTORE LOGIC
-                // FIX: Update players list immediately
                 if(data.players) state.players = data.players;
+                if(data.status) state.onlineStatus = data.status;
                 
                 loadGameData(data);
                 if(data.phase === 'CARDS') {
@@ -1069,10 +1089,8 @@
                     $('client-timer-msg').style.display = 'block';
                     updateTimerDisplay(data.time * 60);
                 } else if (data.phase === 'VOTING') {
-                    // Initialize voting will now use the correct state.players
                     initVotingPhase();
                     transitionTo('view-results');
-                    // Restore vote progress text
                     const vCount = Object.keys(data.votes || {}).length;
                     $('voting-status').innerText = `دەنگدان... (${vCount} / ${state.players.length})`;
                 }
@@ -1131,7 +1149,11 @@
         function renderLobbyPlayers() {
             const container = $('lobby-players-list');
             container.innerHTML = state.players.map((p, index) => {
+                const isOnline = state.onlineStatus[p] !== false; // Default true if undefined
                 let html = `<div class="tag">${p} ${p === state.myName ? '(تۆ)' : ''}`;
+                // Add Dot
+                html += `<span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>`;
+                
                 if(state.isHost && p !== state.myName) {
                     html += `<div class="kick-btn" onclick="kickPlayer(${index})"><i class="fas fa-times"></i></div>`;
                 }
@@ -1219,10 +1241,8 @@
         function addPlayer() {
             const input = $('player-input');
             const name = input.value.trim();
-            if(name) {
-                // Suffix logic for offline mode
-                let finalName = getUniqueName(name, state.players);
-                state.players.push(finalName);
+            if(name && !state.players.includes(name)) {
+                state.players.push(name);
                 renderTags();
                 input.value = '';
                 playSfx('pop');
@@ -1393,7 +1413,6 @@
                         
                         if(state.isHost) {
                             state.flippedCount++; 
-                            saveHostGameState();
                             if(state.flippedCount >= state.players.length) {
                                 determineStarter();
                                 broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
@@ -1530,7 +1549,13 @@
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
                 btn.id = `suspect-${playerName}`;
-                btn.innerHTML = `<i class="fas fa-user"></i><div>${playerName}</div>`;
+                
+                // ADD STATUS DOT TO SUSPECT CARD
+                const isOnline = state.isOnline ? (state.onlineStatus[playerName] !== false) : true;
+                let html = `<i class="fas fa-user"></i><div>${playerName}</div>`;
+                if(state.isOnline) html += `<span class="status-dot ${isOnline?'online':'offline'}" style="margin-top:5px;"></span>`;
+                
+                btn.innerHTML = html;
                 
                 if(state.isOnline) {
                     btn.onclick = () => selectSuspectOnline(playerName, btn);
@@ -1789,8 +1814,6 @@
 
         function restoreHostGameState() {
             const saved = sessionStorage.getItem('spy_host_state');
-            const myName = sessionStorage.getItem('spy_name');
-
             if(saved) {
                 const d = JSON.parse(saved);
                 state.players = d.players || [];
@@ -1805,35 +1828,22 @@
                 state.flippedCount = d.flippedCount || 0;
                 state.onlineVotes = d.onlineVotes || {};
                 
-                // Ensure the Host knows their own name
-                if(myName) state.myName = myName;
-
                 // RESTORE UI BASED ON PHASE
                 if(state.gamePhase === 'CARDS') {
-                    // Find host's own role card
-                    state.myRole = state.assignments.find(a => a.name === state.myName);
-                    if(!state.myRole) state.myRole = { role: 'citizen' }; // Fallback
-
                     $('current-player-name').innerText = state.myName;
+                    state.myRole = state.assignments.find(a => a.name === state.myName);
                     transitionTo('view-cards');
                     updateOnlineCardView();
-
                 } else if(state.gamePhase === 'TIMER') {
                     transitionTo('view-timer');
                     startTimer(state.timeLeft);
-
                 } else if(state.gamePhase === 'VOTING') {
                     initVotingPhase();
                     transitionTo('view-results');
                     checkVoteCompletion();
-
                 } else if(state.gamePhase === 'SETUP') {
                     transitionTo('view-setup');
                     renderTags();
-                } else {
-                     // Default Lobby
-                     transitionTo('view-lobby-waiting');
-                     renderLobbyPlayers();
                 }
             }
         }
