@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html lang="ku" dir="rtl">
 <head>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spy Master - Ultimate</title>
+    <title>سیخوڕ</title>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PeerJS for Online Multiplayer -->
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
 
     <style>
         /* --- RESET & VARIABLES --- */
@@ -63,13 +68,7 @@
             100% { box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5); }
         }
 
-        /* Fixed Particle Animation */
-        @keyframes float { 
-            0% { transform: translateY(110vh) scale(0); opacity: 0; } 
-            20% { opacity: 0.5; transform: translateY(80vh) scale(1); }
-            100% { transform: translateY(-10vh) scale(0.5); opacity: 0; } 
-        }
-
+        @keyframes float { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: translateY(-100px) scale(1); opacity: 0; } }
         @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes bounceIn { 0% { opacity:0; transform: scale(0.8); } 60% { transform: scale(1.05); } 100% { opacity:1; transform: scale(1); } }
@@ -93,17 +92,9 @@
         @keyframes toastExit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-20px) scale(0.9); } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
 
-        /* --- BACKGROUND PARTICLES (FIXED) --- */
-        .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0.6; }
-        .particle { 
-            position: absolute; 
-            border-radius: 50%; 
-            background: rgba(255, 255, 255, 0.3); 
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-            width: 4px; /* Added Size */
-            height: 4px; /* Added Size */
-            animation: float infinite linear; 
-        }
+        /* --- BACKGROUND PARTICLES --- */
+        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0.5; }
+        .particle { position: absolute; border-radius: 50%; background: white; opacity: 0.3; animation: float infinite linear; }
 
         /* --- APP WRAPPER --- */
         .app-wrapper {
@@ -160,6 +151,8 @@
         .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; font-weight: 400; text-align: center; }
         
         .top-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; min-height: 40px; }
+        .center-icons { display: flex; gap: 15px; }
+
         .icon-btn { 
             background: var(--glass); border: 1px solid var(--glass-border); color: #fff; 
             width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; 
@@ -175,6 +168,9 @@
         .add-btn { width: 50px; background: var(--primary); border: none; border-radius: 16px; color: white; font-size: 1.2rem; cursor: pointer; position: relative; overflow: hidden; }
         .add-btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 200%; height: 100%; background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite linear; pointer-events: none; }
         
+        .stacked-inputs { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .stacked-buttons { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
+
         .tags-container { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
         .tag { background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .tag i { opacity: 0.5; cursor: pointer; padding: 4px; }
@@ -200,6 +196,7 @@
         .control-row { display: flex; justify-content: space-between; width: 100%; max-width: 600px; align-items: center; background: var(--glass); padding: 12px 15px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 10px; }
         .stepper { display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 12px; }
         .step-btn { color: var(--text); background: none; border: none; font-size: 1.1rem; width: 30px; cursor: pointer; }
+        .step-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .step-val { font-weight: 900; width: 20px; text-align: center; }
 
         .primary-btn {
@@ -212,6 +209,10 @@
             display: flex; justify-content: center; align-items: center; gap: 10px; flex-shrink: 0;
             animation: glow-pulse 3s infinite;
         }
+        .primary-btn.secondary { background: var(--glass); border: 1px solid var(--glass-border); animation: none; }
+        .primary-btn.danger { background: rgba(244, 63, 94, 0.2); border: 1px solid var(--accent); color: var(--accent); animation: none; }
+        .primary-btn.danger:hover { background: rgba(244, 63, 94, 0.4); }
+        
         .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
         .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite ease-in-out; pointer-events: none; }
         .primary-btn:active { transform: scale(0.98); }
@@ -289,6 +290,8 @@
         .suspect-card.eliminated { opacity: 0.3; pointer-events: none; filter: grayscale(1); transform: scale(0.9); }
         .suspect-card.caught { background: var(--accent); border-color: var(--accent); pointer-events: none; }
         
+        .voter-badge { position: absolute; bottom: 5px; right: 5px; background: var(--primary); width: 20px; height: 20px; border-radius: 50%; font-size: 0.6rem; display: grid; place-items: center; }
+
         .winner-header { text-align: center; margin-top: 20px; }
         .winner-header i { font-size: 3rem; margin-bottom: 10px; }
         .winner-citizens i { color: var(--success); }
@@ -298,6 +301,8 @@
 
         .footer { width: 100%; text-align: center; padding: 15px 0 5px 0; font-size: 0.75rem; color: rgba(255,255,255,0.4); letter-spacing: 1px; text-transform: uppercase; }
         .footer b { color: var(--primary); font-weight: 900; }
+        
+        .waiting-message { font-size: 1.2rem; color: var(--text-muted); animation: pulse 1s infinite; margin-top: 20px; text-align: center;}
         
         @media (max-height: 600px) {
             h1 { font-size: 1.4rem; }
@@ -320,11 +325,93 @@
     <!-- App Container -->
     <div class="app-wrapper">
 
-        <!-- VIEW 1: SETUP -->
-        <div id="view-setup" class="view active">
+        <!-- VIEW 0: MODE SELECTION -->
+        <div id="view-mode" class="view active">
+             <div class="scroll-content" style="justify-content: center;">
+                <h1 style="font-size: 2.5rem; margin-bottom: 10px;">سیخوڕ</h1>
+                <p class="subtitle">یەکێک لەم شێوازانە هەڵبژێرە</p>
+                
+                <button class="primary-btn" onclick="startLocalMode()">
+                    <span>یاریکردن بە یەک مۆبایل</span> <i class="fas fa-mobile-alt"></i>
+                </button>
+                <div style="margin: 10px; color: var(--text-muted); font-size: 0.8rem;">--- یان ---</div>
+                <button class="primary-btn secondary" onclick="transitionTo('view-lobby-entry')">
+                    <span>یاریکردن بە ئۆنڵاین</span> <i class="fas fa-wifi"></i>
+                </button>
+                
+                <div class="footer">Made by <a href="https://instagram.com/baxnasi7" target="_blank"> <b>Bawan</b> </a></div>
+             </div>
+        </div>
+
+        <!-- VIEW 0.5: LOBBY ENTRY -->
+        <div id="view-lobby-entry" class="view">
             <div class="top-bar">
-                <div class="icon-btn" onclick="toggleSound()" id="btn-sound"><i class="fas fa-volume-up"></i></div>
+                <div class="icon-btn" onclick="transitionTo('view-mode')"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="scroll-content" style="justify-content: center;">
+                <h2>سەرەتا</h2>
+                <p class="subtitle">زانیاریەکانت پڕبکەرەوە</p>
+                
+                <!-- Stacked Inputs -->
+                <div class="stacked-inputs">
+                    <input type="text" id="my-name-input" class="main-input" placeholder="ناوەکەت..." style="text-align: center; width: 100%; margin:0;">
+                    <input type="text" id="room-code-input" class="main-input" placeholder="کۆدی ژوور (بۆ دروستکردن یان چوونەژوور)" style="text-align: center; letter-spacing: 2px; width: 100%; margin:0;">
+                </div>
+                
+                <div style="width: 100%; border-top: 1px solid var(--glass-border); margin: 20px 0; max-width: 400px;"></div>
+
+                <!-- Stacked Buttons -->
+                <div class="stacked-buttons">
+                    <button class="primary-btn" onclick="createOnlineRoom()" style="width: 100%; margin:0;">
+                        <span>دروستکردنی ژوور (Server)</span> <i class="fas fa-server"></i>
+                    </button>
+                    <button class="primary-btn secondary" onclick="joinOnlineRoom()" style="width: 100%; margin:0;">
+                        <span>چوونە ژوورەوە</span> <i class="fas fa-sign-in-alt"></i>
+                    </button>
+                </div>
+                
+                <p style="margin: 20px 0; font-size: 0.9rem; color: var(--text-muted); text-align: center;">ئەگەر بۆ دروستکردن کۆد نەنوسیت، بەڕێکەوت دروست دەبێت</p>
+            </div>
+        </div>
+
+        <!-- VIEW 0.7: WAITING LOBBY -->
+        <div id="view-lobby-waiting" class="view">
+             <div class="top-bar">
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-times"></i></div>
+             </div>
+             <div class="scroll-content">
+                 <h2>ژووری چاوەڕوانی</h2>
+                 <div style="background: var(--glass); padding: 10px 20px; border-radius: 12px; border: 1px solid var(--primary); color: var(--primary); font-weight: bold; font-size: 1.5rem; letter-spacing: 3px; margin-bottom: 20px;" id="display-room-code">...</div>
+                 
+                 <div class="section-title">یاریزانەکان:</div>
+                 <div id="lobby-players-list" class="tags-container"></div>
+                 
+                 <div id="host-controls" style="width: 100%; display: none; flex-direction: column; align-items: center; gap: 10px;">
+                     <p class="subtitle">تۆ سێرڤەریت، کەی هەمووان هاتن دەستپێبکە</p>
+                     <button class="primary-btn" onclick="setupOnlineGame()">
+                        <span>ڕێکخستن و دەستپێکردن</span> <i class="fas fa-cog"></i>
+                    </button>
+                    <!-- Stop Server Button -->
+                    <button class="primary-btn danger" onclick="stopServer()" style="margin-top: 5px;">
+                        <span>داخستنی سێرڤەر</span> <i class="fas fa-power-off"></i>
+                    </button>
+                 </div>
+                 <div id="client-wait-msg" style="display: none;">
+                     <p class="waiting-message">چاوەڕێی سێرڤەر بە یاریەکە دەستپێبکات...</p>
+                 </div>
+             </div>
+        </div>
+
+        <!-- VIEW 1: SETUP -->
+        <div id="view-setup" class="view">
+            <div class="top-bar">
                 <div class="icon-btn" onclick="toggleHelp()"><i class="fas fa-question"></i></div>
+                <div class="center-icons">
+                    <div class="icon-btn" onclick="toggleSound()" id="btn-sound"><i class="fas fa-volume-up"></i></div>
+                    <div class="icon-btn" onclick="toggleHaptics()" id="btn-haptics"><i class="fas fa-mobile-alt"></i></div>
+                </div>
+                <div class="icon-btn" onclick="exitToMainMenu()" id="btn-exit"><i class="fas fa-home"></i></div>
+                <div class="icon-btn" onclick="backToLobby()" id="btn-back-lobby" style="display:none"><i class="fas fa-arrow-right"></i></div>
             </div>
 
             <div class="scroll-content">
@@ -335,48 +422,50 @@
                 <div class="section-title">بابەت هەڵبژێرە (زیاتر لە یەک دانە ئاساییە):</div>
                 <div class="topics-grid" id="topics-container"></div>
                 
-                <!-- Custom Input (Hidden by default) -->
+                <!-- Custom Input -->
                 <div id="custom-words-container">
                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; font-weight: bold;">وشە تایبەتەکانت بنووسە:</div>
                     <textarea id="custom-words-input" placeholder="نموونە: تۆپی پێ، باڵە، مەلەوانی... &#10;یان بە ENTER جیایان بکەوە"></textarea>
                     <div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); text-align: left; margin-top:5px;">بە کۆما یان دێڕ جیایان بکەرەوە</div>
                 </div>
 
-                <!-- Inputs -->
-                <div class="section-title">لیستی یاریزانان:</div>
-                <div class="input-box">
-                    <input type="text" id="player-input" class="main-input" placeholder="ناوی یاریزان..." autocomplete="off">
-                    <button class="add-btn" onclick="addPlayer()"><i class="fas fa-plus"></i></button>
+                <!-- Inputs (Local Mode) -->
+                <div id="player-input-section">
+                    <div class="section-title">لیستی یاریزانان:</div>
+                    <div class="input-box">
+                        <input type="text" id="player-input" class="main-input" placeholder="ناوی یاریزان..." autocomplete="off">
+                        <button class="add-btn" onclick="addPlayer()"><i class="fas fa-plus"></i></button>
+                    </div>
                 </div>
+                <!-- Player List -->
                 <div id="players-container" class="tags-container"></div>
                 
                 <!-- Game Controls -->
                 <div class="section-title">ڕێکخستنەکان:</div>
                 <div class="control-row">
-                    <div class="control-label"><span>ژمارەی سیخوڕ</span><small>پێشنیارکراو: ١</small></div>
+                    <div class="control-label"><span>ژمارەی سیخوڕەکان</span></div>
                     <div class="stepper">
-                        <button class="step-btn" onclick="adjVal('spy-count', -1)">-</button>
+                        <button class="step-btn" id="btn-spy-down" onclick="adjVal('spy-count', -1)">-</button>
                         <span class="step-val" id="spy-count">1</span>
-                        <button class="step-btn" onclick="adjVal('spy-count', 1)">+</button>
+                        <button class="step-btn" id="btn-spy-up" onclick="adjVal('spy-count', 1)">+</button>
                     </div>
                 </div>
 
                 <div class="control-row">
-                    <div class="control-label"><span>کات (خولەک)</span><small>ماوەی گفتوگۆ</small></div>
+                    <div class="control-label"><span>کات (خولەک) ماوەی گفتوگۆ</span></div>
                     <div class="stepper">
-                        <button class="step-btn" onclick="adjVal('game-time', -1)">-</button>
+                        <button class="step-btn" id="btn-time-down" onclick="adjVal('game-time', -1)">-</button>
                         <span class="step-val" id="game-time">5</span>
-                        <button class="step-btn" onclick="adjVal('game-time', 1)">+</button>
+                        <button class="step-btn" id="btn-time-up" onclick="adjVal('game-time', 1)">+</button>
                     </div>
                 </div>
                 
-                <!-- NEW: Number of Guesses -->
                 <div class="control-row">
-                    <div class="control-label"><span>هەوڵەکان</span><small>بۆ دۆزینەوەی سیخوڕ</small></div>
+                    <div class="control-label"><span>ژمارەی هەوڵەکان بۆ دۆزینەوەی سیخوڕ</span></div>
                     <div class="stepper">
-                        <button class="step-btn" onclick="adjVal('guess-count', -1)">-</button>
+                        <button class="step-btn" id="btn-guess-down" onclick="adjVal('guess-count', -1)">-</button>
                         <span class="step-val" id="guess-count">1</span>
-                        <button class="step-btn" onclick="adjVal('guess-count', 1)">+</button>
+                        <button class="step-btn" id="btn-guess-up" onclick="adjVal('guess-count', 1)">+</button>
                     </div>
                 </div>
             </div>
@@ -384,10 +473,9 @@
             <button class="primary-btn" id="start-btn" onclick="initGame()">
                 <span>دەستپێکردن</span> <i class="fas fa-arrow-left"></i>
             </button>
-            <div class="footer">Made by <a href="https://instagram.com/baxnasi7" target="_blank"> <b>Bawan</b> </a></div>
         </div>
 
-        <!-- VIEW 2: CARDS (Role Reveal) -->
+        <!-- VIEW 2: CARDS -->
         <div id="view-cards" class="view">
             <div class="top-bar" style="justify-content: center;">
                 <h2 style="margin:0; font-size: 1rem; color:var(--text-muted);">ڕۆڵەکان</h2>
@@ -396,7 +484,7 @@
             <div class="scroll-content" style="justify-content: center;">
                 <div style="text-align:center; margin-bottom: 20px;">
                     <div id="current-player-name" class="shimmer-text" style="font-size: 1.4rem; font-weight: bold; margin-bottom: 5px;">Yarizan</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">مۆبایلەکە بدە دەست ئەم کەسە</div>
+                    <div id="card-instruction" style="font-size: 0.8rem; color: var(--text-muted);">مۆبایلەکە بدە دەست ئەم کەسە</div>
                 </div>
 
                 <div class="card-wrapper">
@@ -414,6 +502,10 @@
                             <div style="position:absolute; bottom:20px; opacity:0.4; font-size: 0.75rem;">دووبارە کلیک بکە بۆ شاردنەوە</div>
                         </div>
                     </div>
+                </div>
+                
+                <div id="waiting-others-msg" class="waiting-message" style="display: none; font-size: 1rem;">
+                    چاوەڕێی یاریزانەکانی تر بە کارتەکانیان ببینن...
                 </div>
             </div>
         </div>
@@ -437,13 +529,20 @@
                     <div class="time-text shimmer-text" id="timer-val">00:00</div>
                 </div>
                 <p class="subtitle" style="text-align: center;">پرسیار لە یەکتری بکەن بەبێ ئەوەی نهێنییەکە ئاشکرا بکەن!</p>
-                <button class="icon-btn" style="width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); margin-bottom: 30px;" onclick="togglePause()">
-                    <i class="fas fa-pause" id="pause-icon"></i>
-                </button>
+                
+                <!-- Only Host Sees These -->
+                <div id="host-timer-controls">
+                    <button class="icon-btn" style="width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); margin-bottom: 30px;" onclick="togglePause()">
+                        <i class="fas fa-pause" id="pause-icon"></i>
+                    </button>
+                    <button class="primary-btn" style="background: var(--accent);" onclick="endGame()">
+                        <span>کۆتایی هێنان بە کات</span> <i class="fas fa-gavel"></i>
+                    </button>
+                </div>
+                <div id="client-timer-msg" style="display: none; color: var(--text-muted); font-size: 0.8rem;">
+                    تەنها سێرڤەر دەتوانێت کات کۆنتڕۆڵ بکات
+                </div>
              </div>
-             <button class="primary-btn" style="background: var(--accent);" onclick="endGame()">
-                <span>کۆتایی هێنان بە کات</span> <i class="fas fa-gavel"></i>
-            </button>
         </div>
 
         <!-- VIEW 5: RESULTS & VOTING -->
@@ -464,9 +563,12 @@
 
                     <div id="voting-status" class="status-box">تکایە گومانلێکراو هەڵبژێرە</div>
                     <div id="suspects-grid" class="topics-grid"></div>
-                    <button class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything('neutral')">
+                    
+                    <!-- Only Host reveals -->
+                    <button id="btn-reveal-all" class="primary-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px; font-size: 0.9rem;" onclick="revealEverything('neutral')">
                          <span>کۆتایی / هەموویان ئاشکرا بکە</span>
                     </button>
+                    <div id="client-reveal-msg" style="display:none; text-align:center; margin-top:10px; opacity:0.6">چاوەڕێی سێرڤەر بە ئەنجامەکان ئاشکرا بکات</div>
                 </div>
                 <!-- Final Results -->
                 <div id="phase-post-reveal" class="result-phase-container" style="display: none;">
@@ -587,21 +689,18 @@
         const state = {
             players: [], numSpies: 1, gameTime: 5, maxGuesses: 1, guessesLeft: 1, manualGuessSet: false,
             selectedCats: new Set([]), isSoundOn: true,
-            currentWord: '', assignments: [], activeSpies: 0, activeCitizens: 0, cardIndex: 0, timerRunning: false, timeLeft: 0, timerInt: null
+            isHapticsOn: true,
+            currentWord: '', assignments: [], activeSpies: 0, activeCitizens: 0, cardIndex: 0, timerRunning: false, timeLeft: 0, timerInt: null,
+            // ONLINE VARS
+            isOnline: false,
+            isHost: false,
+            myName: "",
+            myRole: null, // {name, role, id}
+            flippedCount: 0 // for host to track
         };
 
         // --- DOM HELPERS ---
         const $ = (id) => document.getElementById(id);
-        
-        // HELPER: FORCE VIBRATE (Safe for all browsers)
-        function triggerVibration(pattern) {
-            if (navigator.vibrate) {
-                try {
-                    navigator.vibrate(pattern);
-                } catch(e) { console.log("Vibration blocked or not supported"); }
-            }
-        }
-
         const transitionTo = (viewId) => {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             $(viewId).classList.add('active');
@@ -610,31 +709,265 @@
 
         // --- TOAST NOTIFICATIONS ---
         function showToast(message) {
-            triggerVibration(200); // Vibrate immediately on error
             const container = $('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast-box';
-            
-            // Icon
             const icon = document.createElement('i');
             icon.className = 'fas fa-exclamation-circle toast-icon';
-            
-            // Text
             const text = document.createElement('span');
             text.innerText = message;
-            
             toast.appendChild(icon);
             toast.appendChild(text);
             container.appendChild(toast);
-            
-            // Play error sound
             playSfx('pop'); 
-
-            // Remove after 3s
+            triggerVibrate(200);
             setTimeout(() => {
                 toast.classList.add('hiding');
                 toast.addEventListener('animationend', () => toast.remove());
             }, 3000);
+        }
+
+        // --- MODE SELECTION ---
+        function startLocalMode() {
+            state.isOnline = false;
+            state.isHost = true; // Local is always host
+            
+            // UI Adjustment for Local: Show Exit button, Hide Back button
+            $('btn-exit').style.display = 'grid';
+            $('btn-back-lobby').style.display = 'none';
+            $('player-input-section').style.display = 'block';
+
+            transitionTo('view-setup');
+        }
+
+        function exitToMainMenu() {
+            // Reset essential state
+            state.players = [];
+            state.isOnline = false;
+            if(peer) { peer.destroy(); peer = null; }
+            hostConnections = [];
+            myConn = null;
+            
+            // Clear inputs
+            $('player-input').value = '';
+            $('my-name-input').value = '';
+            $('room-code-input').value = '';
+            renderTags();
+            
+            transitionTo('view-mode');
+        }
+        
+        // --- ONLINE LOGIC (PeerJS) ---
+        let peer = null;
+        let myConn = null; // Client connection to host
+        let hostConnections = []; // Host list of connections
+
+        function createOnlineRoom() {
+            const name = $('my-name-input').value.trim();
+            if(!name) return showToast("تکایە ناوەکەت بنووسە");
+            
+            state.myName = name;
+            state.isOnline = true;
+            state.isHost = true;
+            state.players = [name]; // Start with me
+            
+            // Get Custom Code or Generate Random
+            let customCode = $('room-code-input').value.trim();
+            if(!customCode) {
+                // Generate Random if empty
+                customCode = Math.floor(1000 + Math.random() * 9000).toString();
+            }
+            
+            peer = new Peer("spygame-" + customCode);
+            
+            peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+                $('display-room-code').innerText = customCode; // Show clean code without prefix
+                transitionTo('view-lobby-waiting');
+                renderLobbyPlayers();
+                $('host-controls').style.display = 'flex';
+                $('client-wait-msg').style.display = 'none';
+            });
+
+            peer.on('error', (err) => {
+                console.error(err);
+                if(err.type === 'unavailable-id') {
+                    showToast("ئەم کۆدە بەکارهاتووە، تکایە دانەیەکی تر بنووسە");
+                    // Reset state so they can try again
+                    state.isOnline = false;
+                    state.isHost = false;
+                    state.players = [];
+                    peer = null;
+                }
+                else showToast("هەڵەی پەیوەندی: دڵنیابە ئینتەرنێت هەیە");
+            });
+
+            peer.on('connection', (conn) => {
+                hostConnections.push(conn);
+                conn.on('data', (data) => handleHostData(data, conn));
+                conn.on('close', () => {
+                    // Handle disconnect (remove player) - simplified for now
+                });
+            });
+        }
+        
+        function stopServer() {
+            if(confirm("دڵنیایت دەوێت سێرڤەرەکە داخەیت؟")) {
+                broadcast({ type: 'ROOM_CLOSED' });
+                // Small delay to ensure message sends
+                setTimeout(() => {
+                    exitToMainMenu();
+                }, 300);
+            }
+        }
+
+        function joinOnlineRoom() {
+            const name = $('my-name-input').value.trim();
+            const code = $('room-code-input').value.trim();
+            if(!name || !code) return showToast("ناو و کۆد بنووسە");
+
+            state.myName = name;
+            state.isOnline = true;
+            state.isHost = false;
+
+            peer = new Peer(); // Auto random ID
+            peer.on('open', (id) => {
+                const conn = peer.connect("spygame-" + code);
+                conn.on('open', () => {
+                    myConn = conn;
+                    // Send Join Request
+                    conn.send({ type: 'JOIN', name: name });
+                    transitionTo('view-lobby-waiting');
+                    $('display-room-code').innerText = code;
+                    $('host-controls').style.display = 'none';
+                    $('client-wait-msg').style.display = 'block';
+                });
+                
+                conn.on('data', (data) => handleClientData(data));
+                
+                conn.on('close', () => {
+                   // Connection closed logic handled inside handleClientData for intentional closes
+                });
+
+                peer.on('error', (err) => {
+                    showToast("کۆدەکە هەڵەیە یان ئینتەرنێت نییە");
+                });
+            });
+        }
+
+        // HOST HANDLERS
+        function handleHostData(data, conn) {
+            if(data.type === 'JOIN') {
+                if(state.players.includes(data.name)) {
+                    // Handle duplicate name? For now just add index
+                    data.name = data.name + "_" + Math.floor(Math.random()*10);
+                }
+                state.players.push(data.name);
+                // Map connection to player name for later
+                conn.playerName = data.name;
+                
+                renderLobbyPlayers();
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+            }
+            else if(data.type === 'FLIPPED_BACK') {
+                state.flippedCount++;
+                if(state.flippedCount >= state.players.length) {
+                    // All flipped, start timer logic
+                    determineStarter(); // This calculates and shows view-starter
+                    // We need to broadcast starter view
+                    const starter = $('starter-name-display').innerText;
+                    broadcast({ type: 'SHOW_STARTER', starterName: starter });
+                }
+            }
+            else if(data.type === 'VOTE') {
+                // data.suspect, data.voter
+                broadcast({ type: 'VOTE_REGISTERED', suspect: data.suspect, voter: data.voter });
+                // Check if enough votes? (Simplified: Just visual for now)
+            }
+        }
+
+        // CLIENT HANDLERS
+        function handleClientData(data) {
+            if(data.type === 'UPDATE_LOBBY') {
+                state.players = data.players;
+                renderLobbyPlayers();
+            }
+            else if(data.type === 'SETUP_GAME') {
+                // Host moved to setup, we wait
+                // Ideally show "Host is configuring..."
+            }
+            else if(data.type === 'START_GAME') {
+                // data.roleObj {name, role, id}
+                state.myRole = data.roleObj;
+                state.gameTime = data.time;
+                state.currentWord = data.word; // Only needed if citizen
+                state.numSpies = data.spiesCount;
+                state.maxGuesses = data.guesses;
+                
+                // Transition
+                $('current-player-name').innerText = state.myName;
+                $('card-instruction').innerText = "کارتەکەت ببینە";
+                transitionTo('view-cards');
+                updateOnlineCardView();
+            }
+            else if(data.type === 'SHOW_STARTER') {
+                 $('starter-name-display').innerText = data.starterName;
+                 $('waiting-others-msg').style.display = 'none';
+                 transitionTo('view-starter');
+                 playSfx('victory');
+            }
+            else if(data.type === 'SYNC_TIMER') {
+                // data.timeLeft, data.running
+                state.timeLeft = data.timeLeft;
+                state.timerRunning = data.running;
+                if(document.getElementById('view-timer').classList.contains('active') === false) {
+                     transitionTo('view-timer');
+                }
+                updateTimerDisplay(data.totalTime);
+            }
+            else if(data.type === 'GAME_OVER') {
+                 endGame();
+            }
+            else if(data.type === 'VOTE_REGISTERED') {
+                 // Update UI to show who voted
+                 showVoteOnUI(data.suspect, data.voter);
+            }
+            else if(data.type === 'REVEAL_ALL') {
+                 state.assignments = data.assignments; // Full list
+                 revealEverything(data.winner);
+            }
+            else if(data.type === 'ROOM_CLOSED') {
+                showToast("سێرڤەرەکە داخرا!");
+                setTimeout(() => exitToMainMenu(), 1500);
+            }
+        }
+
+        function broadcast(msg) {
+            hostConnections.forEach(c => c.send(msg));
+        }
+
+        function renderLobbyPlayers() {
+            const container = $('lobby-players-list');
+            container.innerHTML = state.players.map(p => 
+                `<div class="tag">${p} ${p === state.myName ? '(تۆ)' : ''}</div>`
+            ).join('');
+        }
+
+        function setupOnlineGame() {
+            transitionTo('view-setup');
+            
+            // UI Adjustment for Online Host: Show Back button, Hide Exit button
+            $('btn-exit').style.display = 'none';
+            $('btn-back-lobby').style.display = 'grid';
+
+            // Hide add player button inputs
+            $('player-input-section').style.display = 'none';
+            renderTags(); // Just to show list
+            broadcast({ type: 'SETUP_GAME' });
+        }
+        
+        function backToLobby() {
+            transitionTo('view-lobby-waiting');
         }
 
         // --- SETUP SCREEN LOGIC ---
@@ -652,7 +985,6 @@
         setupGrid();
 
         function toggleTopic(key, el) {
-            triggerVibration(15); // Light tap
             if (state.selectedCats.has(key)) {
                 state.selectedCats.delete(key);
                 el.classList.remove('selected');
@@ -670,6 +1002,7 @@
                 }
             }
             playSfx('click');
+            triggerVibrate(10);
         }
 
         function addPlayer() {
@@ -680,7 +1013,6 @@
                 renderTags();
                 input.value = '';
                 playSfx('pop');
-                triggerVibration(30);
             } else if(state.players.includes(name)) {
                 input.classList.add('error-shake');
                 showToast("ئەم ناوە پێشتر داخڵ کراوە!");
@@ -693,22 +1025,28 @@
 
         function renderTags() {
             const c = $('players-container');
+            // Allow delete only if local or if host removing someone (feature for later)
+            // For now, in online, remove 'X'
+            const showX = !state.isOnline || (state.isOnline && state.isHost && false); 
+            
             c.innerHTML = state.players.map((p,i) => 
-                `<div class="tag">${p} <i class="fas fa-times" onclick="removePlayer(${i})"></i></div>`
+                `<div class="tag">${p} ${showX ? `<i class="fas fa-times" onclick="removePlayer(${i})"></i>` : ''}</div>`
             ).join('');
+            
+            // Adjust spy count limit
             const spyLimit = Math.max(1, Math.floor(state.players.length / 2));
             if(parseInt($('spy-count').innerText) > spyLimit) $('spy-count').innerText = spyLimit;
         }
 
         function removePlayer(i) {
-            triggerVibration(15);
             state.players.splice(i, 1);
             renderTags();
             playSfx('click');
         }
 
         function adjVal(id, amount) {
-            triggerVibration(10);
+            if(state.isOnline && !state.isHost) return; // Only host edits
+
             const el = $(id);
             let val = parseInt(el.innerText);
             
@@ -719,10 +1057,8 @@
                 if(val > max && state.players.length > 2) val = max; 
                 state.numSpies = val;
                 el.innerText = val;
-                // Sync Guess Count if manual mode is OFF
-                if (!state.manualGuessSet) {
-                    $('guess-count').innerText = val;
-                }
+
+                if (!state.manualGuessSet) $('guess-count').innerText = val;
             } else if (id === 'guess-count') {
                 state.manualGuessSet = true;
                 val += amount;
@@ -740,15 +1076,8 @@
 
         // --- GAME INITIALIZATION ---
         function initGame() {
-            triggerVibration(50);
-            if (state.players.length < 3) { 
-                showToast("لانی کەم دەبێت ٣ یاریزان هەبن"); 
-                return; 
-            }
-            if (state.selectedCats.size === 0) { 
-                showToast("تکایە لانی کەم بابەتێک هەڵبژێرە"); 
-                return; 
-            }
+            if (state.players.length < 3) { showToast("لانی کەم دەبێت ٣ یاریزان هەبن"); return; }
+            if (state.selectedCats.size === 0) { showToast("تکایە لانی کەم بابەتێک هەڵبژێرە"); return; }
             if(audioCtx.state === 'suspended') audioCtx.resume();
 
             state.numSpies = parseInt($('spy-count').innerText);
@@ -768,113 +1097,201 @@
             if(pool.length === 0) { showToast("هەڵەیەک ڕوویدا لە دۆزینەوەی وشەکان"); return; }
             state.currentWord = pool[Math.floor(Math.random() * pool.length)];
 
+            // Assign Roles
             let roles = Array(state.numSpies).fill('spy').concat(Array(state.players.length - state.numSpies).fill('citizen'));
             roles.sort(() => Math.random() - 0.5);
             let shuffledPlayers = [...state.players].sort(() => Math.random() - 0.5);
 
             state.assignments = shuffledPlayers.map((p, i) => ({ name: p, role: roles[i], id: i }));
-            state.cardIndex = 0;
-            showCardScreen();
+
+            if (state.isOnline) {
+                // Host logic: Send roles to everyone
+                state.flippedCount = 0;
+                
+                // My Role (Host)
+                const hostObj = state.assignments.find(a => a.name === state.myName);
+                state.myRole = hostObj;
+                
+                // Send to clients
+                hostConnections.forEach(conn => {
+                    const playerObj = state.assignments.find(a => a.name === conn.playerName);
+                    if(playerObj) {
+                        conn.send({
+                            type: 'START_GAME',
+                            roleObj: playerObj,
+                            time: state.gameTime,
+                            word: state.currentWord,
+                            spiesCount: state.numSpies,
+                            guesses: state.maxGuesses
+                        });
+                    }
+                });
+
+                // Host UI
+                $('current-player-name').innerText = state.myName;
+                $('card-instruction').innerText = "کارتەکەت ببینە";
+                transitionTo('view-cards');
+                updateOnlineCardView();
+
+            } else {
+                // Local Mode
+                state.cardIndex = 0;
+                showCardScreen();
+            }
         }
 
         // --- CARD LOGIC ---
         let isFlipped = false;
         function showCardScreen() { transitionTo('view-cards'); updateCardView(); }
-        function updateCardView() {
+        
+        function updateCardView() { // LOCAL
             const card = $('the-card');
             card.classList.remove('flipped');
             isFlipped = false;
             setTimeout(() => {
                 const player = state.assignments[state.cardIndex];
                 $('current-player-name').innerText = player.name;
-                $('current-player-name').style.color = "white";
-                
-                const isSpy = player.role === 'spy';
-                if (isSpy) {
-                    $('card-back').className = `card-face face-back spy-mode`;
-                    $('card-role').innerText = "نـهێـنـی";
-                    $('card-word').innerText = "تۆ سیخوڕیت!";
-                    $('card-desc').innerText = "خۆت وەکو هاوڵاتی دەربخە. هەوڵبدە لە قسەی ئەوانی ترەوە وشەکە بزانیت.";
-                } else {
-                    $('card-back').className = `card-face face-back`;
-                    $('card-role').innerText = "تۆ هاوڵاتییت";
-                    $('card-word').innerText = state.currentWord;
-                    $('card-desc').innerText = "سیخوڕەکە لە ناوتاندایە. وریا بە لە کاتی پرسیارکردن.";
-                }
+                applyRoleToCard(player.role === 'spy');
             }, 200);
+        }
+
+        function updateOnlineCardView() { // ONLINE
+            const card = $('the-card');
+            card.classList.remove('flipped');
+            isFlipped = false;
+            applyRoleToCard(state.myRole.role === 'spy');
+        }
+
+        function applyRoleToCard(isSpy) {
+            if (isSpy) {
+                $('card-back').className = `card-face face-back spy-mode`;
+                $('card-role').innerText = "نـهێـنـی";
+                $('card-word').innerText = "تۆ سیخوڕیت!";
+                $('card-desc').innerText = "خۆت وەکو هاوڵاتی دەربخە. هەوڵبدە لە قسەی ئەوانی ترەوە وشەکە بزانیت.";
+            } else {
+                $('card-back').className = `card-face face-back`;
+                $('card-role').innerText = "تۆ هاوڵاتییت";
+                $('card-word').innerText = state.currentWord;
+                $('card-desc').innerText = "سیخوڕەکە لە ناوتاندایە. وریا بە لە کاتی پرسیارکردن.";
+            }
         }
 
         function flipCard() {
             const card = $('the-card');
             if(!isFlipped) {
-                // FLIP ACTION
-                triggerVibration(50); // Single tap
-                playSfx('flip'); 
-                card.classList.add('flipped'); 
-                isFlipped = true;
+                playSfx('flip'); card.classList.add('flipped'); isFlipped = true;
+                triggerVibrate(50);
             } else {
-                // CLOSE ACTION
-                triggerVibration(50);
-                playSfx('flip'); 
-                card.classList.remove('flipped'); 
-                isFlipped = false;
-                setTimeout(() => {
-                    state.cardIndex++;
-                    if(state.cardIndex >= state.assignments.length) determineStarter();
-                    else updateCardView();
-                }, 600);
+                // Flipped Back
+                playSfx('flip'); card.classList.remove('flipped'); isFlipped = false;
+                
+                if (state.isOnline) {
+                    // Lock card and wait
+                    $('the-card').style.pointerEvents = 'none';
+                    $('waiting-others-msg').style.display = 'block';
+                    
+                    if(state.isHost) {
+                        state.flippedCount++; // Host counts himself
+                        if(state.flippedCount >= state.players.length) {
+                             determineStarter();
+                             broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
+                        }
+                    } else {
+                        // Send signal to host
+                        myConn.send({ type: 'FLIPPED_BACK' });
+                    }
+
+                } else {
+                    // Local logic
+                    setTimeout(() => {
+                        state.cardIndex++;
+                        if(state.cardIndex >= state.assignments.length) determineStarter();
+                        else updateCardView();
+                    }, 600);
+                }
             }
         }
-
+        
         function determineStarter() {
-            const citizens = state.assignments.filter(p => p.role === 'citizen');
-            const pool = citizens.length > 0 ? citizens : state.assignments;
-            const randomStarter = pool[Math.floor(Math.random() * pool.length)];
+            const pool = state.assignments;
+            const randomStarter =  pool[Math.floor(Math.random() * pool.length)];
             $('starter-name-display').innerText = randomStarter.name;
             transitionTo('view-starter');
             playSfx('victory');
-            triggerVibration([100, 50, 100]); // Success pattern
         }
 
         // --- TIMER ---
-        function startTimerView() { transitionTo('view-timer'); startTimer(state.gameTime * 60); }
+        function startTimerView() { 
+            // In Online, only Host triggers this via button "باشە"
+            if(state.isOnline && !state.isHost) {
+                 // Clients wait for signal
+                 $('start-btn').style.display='none'; // safety
+                 return;
+            }
+            transitionTo('view-timer'); 
+            startTimer(state.gameTime * 60); 
+        }
+
         function startTimer(seconds) {
             state.timeLeft = seconds;
-            const totalTime = seconds;
+            const totalTime = state.gameTime * 60; // Keep reference
             updateTimerDisplay(totalTime);
             clearInterval(state.timerInt);
             state.timerRunning = true;
             $('pause-icon').className = "fas fa-pause";
-            state.timerInt = setInterval(() => {
-                if(!state.timerRunning) return;
-                state.timeLeft--;
-                updateTimerDisplay(totalTime);
-                if(state.timeLeft <= 0) { clearInterval(state.timerInt); endGame(); }
-            }, 1000);
+            
+            // UI Tweaks for Client
+            if(state.isOnline && !state.isHost) {
+                $('host-timer-controls').style.display = 'none';
+                $('client-timer-msg').style.display = 'block';
+            } else {
+                $('host-timer-controls').style.display = 'block';
+                $('client-timer-msg').style.display = 'none';
+            }
+
+            // Loop logic (Only Host or Local runs the interval)
+            // Clients just update via broadcast or local interpolation
+            if(!state.isOnline || state.isHost) {
+                state.timerInt = setInterval(() => {
+                    if(!state.timerRunning) return;
+                    state.timeLeft--;
+                    
+                    if(state.isOnline && state.isHost) {
+                        // Sync clients
+                        broadcast({ type: 'SYNC_TIMER', timeLeft: state.timeLeft, running: true, totalTime: totalTime });
+                    }
+                    
+                    updateTimerDisplay(totalTime);
+                    if(state.timeLeft <= 0) { clearInterval(state.timerInt); endGame(); }
+                }, 1000);
+            }
         }
+
         function updateTimerDisplay(total) {
             const m = Math.floor(state.timeLeft / 60).toString().padStart(2, '0');
             const s = (state.timeLeft % 60).toString().padStart(2, '0');
             $('timer-val').innerText = `${m}:${s}`;
             const pct = ((total - state.timeLeft) / total) * 100;
             $('timer-ring').style.setProperty('--progress', `${pct}%`);
-            if(state.timeLeft <= 10) {
-                $('timer-ring').style.background = `conic-gradient(#f43f5e ${pct}%, rgba(255,255,255,0.1) 0)`;
-                $('timer-val').style.color = "#f43f5e";
-                if(state.timeLeft > 0) playSfx('tick');
+            if(state.timeLeft <= 10 && state.timeLeft > 0) {
+                 playSfx('tick');
             }
         }
+
         function togglePause() {
-            triggerVibration(20);
+            if(state.isOnline && !state.isHost) return;
             state.timerRunning = !state.timerRunning;
             $('pause-icon').className = state.timerRunning ? "fas fa-pause" : "fas fa-play";
             playSfx('click');
+            if(state.isOnline) {
+                broadcast({ type: 'SYNC_TIMER', timeLeft: state.timeLeft, running: state.timerRunning, totalTime: state.gameTime * 60 });
+            }
         }
 
         function endGame() {
             clearInterval(state.timerInt);
-            triggerVibration([200, 100, 200, 100, 500]); // Long Alarm Pattern
-            try { playSfx('alarm'); } catch(e){}
+            try { playSfx('alarm'); triggerVibrate([200, 100, 200, 100, 500]); } catch(e){}
+            if(state.isOnline && state.isHost) broadcast({ type: 'GAME_OVER' });
             initVotingPhase();
             transitionTo('view-results');
         }
@@ -886,17 +1303,29 @@
             $('voting-status').className = 'status-box';
             $('voting-status').innerText = "تکایە گومانلێکراو هەڵبژێرە";
             
-            // Initialize Attempts
             state.guessesLeft = state.maxGuesses;
             $('attempts-count').innerText = state.guessesLeft;
             
             state.activeSpies = state.numSpies;
             state.activeCitizens = state.players.length - state.numSpies;
+            
+            // Hide host buttons for clients
+            if(state.isOnline && !state.isHost) {
+                $('btn-reveal-all').style.display = 'none';
+                $('client-reveal-msg').style.display = 'block';
+            } else {
+                $('btn-reveal-all').style.display = 'block';
+                $('client-reveal-msg').style.display = 'none';
+            }
+
             const grid = $('suspects-grid');
             grid.innerHTML = '';
+            
+            // Use assignments array to generate list (synced)
             state.assignments.forEach(player => {
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
+                btn.id = `suspect-${player.name}`; // ID for finding it later
                 btn.innerHTML = `<i class="fas fa-user"></i><div>${player.name}</div>`;
                 btn.onclick = () => checkSuspect(player, btn);
                 grid.appendChild(btn);
@@ -904,18 +1333,32 @@
         }
 
         function checkSuspect(player, btnElement) {
-            const statusBox = $('voting-status');
+            // In Online, clicking sends a "VOTE" signal
+            // In Local, it reveals immediately
             
-            // If already clicked, ignore
+            if(state.isOnline) {
+                // Just register vote visually or send to host
+                 const myVoteData = { type: 'VOTE', suspect: player.name, voter: state.myName };
+                 if(state.isHost) {
+                     // I am host, process directly
+                     broadcast({ type: 'VOTE_REGISTERED', suspect: player.name, voter: state.myName });
+                     showVoteOnUI(player.name, state.myName);
+                 } else {
+                     myConn.send(myVoteData);
+                 }
+                 // Disable further clicking for this user? Maybe not
+                 return; 
+            }
+
+            // LOCAL LOGIC
+            const statusBox = $('voting-status');
             if(btnElement.classList.contains('caught') || btnElement.classList.contains('eliminated')) return;
 
-            // Reduce attempts
             state.guessesLeft--;
             $('attempts-count').innerText = state.guessesLeft;
 
             if (player.role === 'spy') {
-                triggerVibration([100, 50, 100, 50, 100]); // Strong Success
-                playSfx('victory'); 
+                playSfx('victory'); triggerVibrate(200);
                 state.activeSpies--;
                 btnElement.classList.add('caught');
                 btnElement.innerHTML = `<i class="fas fa-check"></i><div>${player.name}</div>`;
@@ -923,31 +1366,42 @@
                 statusBox.innerText = `ئافەرین! ${player.name} سیخوڕ بوو!`;
                 if (state.activeSpies === 0) setTimeout(() => revealEverything('citizens'), 1000);
             } else {
-                triggerVibration(300); // Long Error Buzz
-                playSfx('pop'); 
+                playSfx('pop'); triggerVibrate(50);
                 state.activeCitizens--;
                 btnElement.classList.add('eliminated');
                 statusBox.className = 'status-box error';
                 statusBox.innerText = `${player.name} بێتاوانە! سیخوڕ نییە.`;
             }
 
-            // Check Loss Condition (Ran out of guesses but spies remain)
             if (state.guessesLeft <= 0 && state.activeSpies > 0) {
                  setTimeout(() => revealEverything('spies'), 1000);
             }
         }
 
+        function showVoteOnUI(suspectName, voterName) {
+            const card = document.getElementById(`suspect-${suspectName}`);
+            if(card) {
+                const badge = document.createElement('div');
+                badge.className = 'voter-badge';
+                // Take first 2 chars of voter name
+                badge.innerText = voterName.substring(0,2);
+                card.appendChild(badge);
+                playSfx('pop');
+            }
+        }
+
         function revealEverything(winner) {
+            if(state.isOnline && state.isHost) {
+                broadcast({ type: 'REVEAL_ALL', winner: winner, assignments: state.assignments });
+            }
+
             const winDisplay = $('winner-display');
             winDisplay.innerHTML = '';
-            
             if (winner === 'citizens') {
-                triggerVibration([100, 50, 100]);
                 winDisplay.className = "winner-header winner-citizens";
                 winDisplay.innerHTML = `<i class="fas fa-trophy"></i><h1>هاوڵاتیان بردیانەوە!</h1>`;
                 playSfx('victory');
             } else if (winner === 'spies') {
-                triggerVibration([500, 100, 500]);
                 winDisplay.className = "winner-header winner-spies";
                 winDisplay.innerHTML = `<i class="fas fa-user-secret"></i><h1>سیخوڕەکان بردیانەوە!</h1>`;
                 playSfx('alarm');
@@ -967,24 +1421,42 @@
             $('phase-post-reveal').classList.add('active');
         }
 
-        function goToSetup() { state.timerRunning = false; clearInterval(state.timerInt); transitionTo('view-setup'); }
-        function toggleSound() { state.isSoundOn = !state.isSoundOn; $('btn-sound').style.opacity = state.isSoundOn?1:0.5; $('btn-sound').innerHTML=state.isSoundOn?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; }
-        function toggleHelp() { 
-            triggerVibration(20);
-            const m=$('help-modal'); if(m.style.display==='flex'){m.classList.remove('open');setTimeout(()=>m.style.display='none',300)}else{m.style.display='flex';requestAnimationFrame(()=>m.classList.add('open'));} 
+        function goToSetup() { 
+            state.timerRunning = false; 
+            clearInterval(state.timerInt); 
+            // If Online, Host sends everyone back to setup/lobby
+            // For now, simple reload/reset
+            if(state.isOnline) {
+                location.reload(); 
+            } else {
+                transitionTo('view-setup'); 
+            }
+        }
+        
+        // --- BUTTON TOGGLES ---
+        function toggleSound() { 
+            state.isSoundOn = !state.isSoundOn; 
+            $('btn-sound').style.opacity = state.isSoundOn?1:0.5; 
+            $('btn-sound').innerHTML=state.isSoundOn?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; 
         }
 
-        // --- ENHANCED AUDIO ENGINE ---
+        function toggleHaptics() {
+            state.isHapticsOn = !state.isHapticsOn;
+            $('btn-haptics').style.opacity = state.isHapticsOn ? 1 : 0.5;
+            $('btn-haptics').innerHTML = state.isHapticsOn ? '<i class="fas fa-mobile-alt"></i>' : '<i class="fas fa-ban"></i>';
+            if(state.isHapticsOn) triggerVibrate(50);
+        }
+        
+        function toggleHelp() { const m=$('help-modal'); if(m.style.display==='flex'){m.classList.remove('open');setTimeout(()=>m.style.display='none',300)}else{m.style.display='flex';requestAnimationFrame(()=>m.classList.add('open'));} }
+
+        // --- AUDIO & HAPTIC ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Helper to create noise buffer
         function createNoiseBuffer() {
-            const bufferSize = audioCtx.sampleRate * 2; // 2 seconds
+            const bufferSize = audioCtx.sampleRate * 2; 
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const output = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                output[i] = Math.random() * 2 - 1;
-            }
+            for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; }
             return buffer;
         }
         const noiseBuffer = createNoiseBuffer();
@@ -1007,12 +1479,8 @@
             if(audioCtx.state === 'suspended') audioCtx.resume();
             const now = audioCtx.currentTime;
 
-            if(type === 'click') {
-                // Soft UI Click
-                playTone(800, 'sine', 0.1, 0.05);
-            }
+            if(type === 'click') { playTone(800, 'sine', 0.1, 0.05); }
             else if(type === 'pop') {
-                // Bubble Pop
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.frequency.setValueAtTime(400, now);
@@ -1023,7 +1491,6 @@
                 osc.start(); osc.stop(now + 0.1);
             }
             else if(type === 'swish') {
-                // White Noise Swoosh
                 const source = audioCtx.createBufferSource();
                 source.buffer = noiseBuffer;
                 const filter = audioCtx.createBiquadFilter();
@@ -1036,12 +1503,8 @@
                 source.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
                 source.start(); source.stop(now + 0.3);
             }
-            else if(type === 'flip') {
-                 // Card Flip
-                 playTone(300, 'triangle', 0.15, 0.05);
-            }
+            else if(type === 'flip') { playTone(300, 'triangle', 0.15, 0.05); }
             else if(type === 'tick') {
-                // Woodblock Tick
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.type = 'sine';
@@ -1052,35 +1515,41 @@
                 osc.start(); osc.stop(now + 0.05);
             }
             else if(type === 'victory') {
-                // Major Chord Arpeggio
                 [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
                     setTimeout(() => playTone(f, 'triangle', 0.6, 0.05), i * 80);
                 });
             }
             else if(type === 'alarm') {
-                // Shorter, softer notification (Mallet/Soft Chime)
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(523.25, now); // C5 (High C)
-                // Add a very subtle pitch drop for realism
+                osc.frequency.setValueAtTime(523.25, now); 
                 osc.frequency.exponentialRampToValueAtTime(520, now + 0.5);
-
-                // Envelope
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.15, now + 0.02); // Soft attack
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6); // Short decay (0.6s)
-
+                gain.gain.linearRampToValueAtTime(0.15, now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 osc.start();
                 osc.stop(now + 0.6);
             }
         }
+
+        function triggerVibrate(pattern) {
+            if (state.isHapticsOn && navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        }
         
         // Particles
         const pC=document.getElementById('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
+        
+        // Existing Service Worker logic kept as requested
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+            .then(() => console.log('Service Worker registered'))
+            .catch(err => console.log('Service Worker registration failed:', err));
+        }
     </script>
 </body>
 </html>
