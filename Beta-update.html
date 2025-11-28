@@ -349,7 +349,7 @@
                 <p class="subtitle">یەکێک لەم شێوازانە هەڵبژێرە</p>
                 
                 <button class="primary-btn" onclick="startLocalMode()">
-                    <span>  12یاریکردن بە یەک مۆبایل</span> <i class="fas fa-mobile-alt"></i>
+                    <span>یاریکردن بە یەک مۆبایل</span> <i class="fas fa-mobile-alt"></i>
                 </button>
                 <div style="margin: 10px; color: var(--text-muted); font-size: 0.8rem;">--- یان ---</div>
                 <button class="primary-btn secondary" onclick="transitionTo('view-lobby-entry')">
@@ -749,20 +749,11 @@
         transitionTo('view-setup');
     }
 
-    // FIX: Host exit delay to ensure close message sends
     function exitToMainMenu() {
         if(state.isOnline && state.isHost) {
             broadcast({ type: 'ROOM_CLOSED' });
-            // Wait 1 second before destroying to ensure message flies out
-            setTimeout(() => {
-                performExitCleanup();
-            }, 1000);
-        } else {
-            performExitCleanup();
         }
-    }
-
-    function performExitCleanup() {
+        
         if(peer) { 
             peer.destroy(); 
             peer = null; 
@@ -792,8 +783,8 @@
     let reconnectInterval = null; 
 
     function createOnlineRoom(isRestore = false) {
-        const name = $('my-name-input').value.trim() || state.myName;
-        let customCode = $('room-code-input').value.trim() || sessionStorage.getItem('spy_room_code');
+        const name = $('my-name-input').value.trim();
+        let customCode = $('room-code-input').value.trim();
         
         if(!name) return showToast("تکایە ناوەکەت بنووسە");
         
@@ -826,21 +817,18 @@
 
             if(isRestore) {
                 restoreHostGameState();
-                // Mark everyone else offline until they reconnect
-                state.players.forEach(p => {
-                    if(p !== state.myName) state.playerStatus[p] = 'offline';
-                });
-                renderLobbyPlayers(); 
+                // Ensure UI is refreshed immediately after restore
+                renderLobbyPlayers();
+                showToast("گەڕایتەوە بۆ ژوورەکەت");
             } else {
                 transitionTo('view-lobby-waiting');
+                renderLobbyPlayers();
             }
 
-            renderLobbyPlayers();
             $('host-controls').style.display = 'flex';
             $('client-wait-msg').style.display = 'none';
             
             updateLockBtnUI();
-            if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
         });
 
         peer.on('error', (err) => {
@@ -892,10 +880,8 @@
     }
 
     function joinOnlineRoom(isRestore = false) {
-        // If restoring, use stored values if inputs are empty
-        const name = $('my-name-input').value.trim() || state.myName;
-        const code = $('room-code-input').value.trim() || sessionStorage.getItem('spy_room_code');
-        
+        const name = $('my-name-input').value.trim();
+        const code = $('room-code-input').value.trim();
         if(!name || !code) return showToast("ناو و کۆد بنووسە");
 
         saveSession(false, name, code);
@@ -918,25 +904,20 @@
     }
 
     function connectToHost(code, name, isRestore) {
-        if(reconnectInterval) {
-             clearInterval(reconnectInterval);
-             reconnectInterval = null;
-        }
+        if(reconnectInterval) clearInterval(reconnectInterval);
 
         const conn = peer.connect("spygame-" + code);
         
         conn.on('open', () => {
             console.log("Connected to Host");
             myConn = conn;
-            
-            // Send JOIN
+            if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+
             conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
             
-            // Check if we need to switch view to lobby (if we were disconnected)
-            const currentView = document.querySelector('.view.active').id;
-            if(!currentView.includes('view-cards') && 
-               !currentView.includes('view-timer') &&
-               !currentView.includes('view-results')) {
+            if(!document.querySelector('.view.active').id.includes('view-cards') && 
+               !document.querySelector('.view.active').id.includes('view-timer') &&
+               !document.querySelector('.view.active').id.includes('view-results')) {
                 transitionTo('view-lobby-waiting');
             }
             
@@ -950,32 +931,19 @@
         
         conn.on('data', (data) => handleClientData(data));
         
-        // Revised reconnection logic
         conn.on('close', () => {
-            console.log("Disconnected from Host.");
+            console.log("Disconnected from Host. Attempting reconnect...");
             myConn = null;
             $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
             showToast("پەیوەندی پچڕا! هەوڵدەدات پەیوەست بێتەوە...");
             
-            // Only set interval if not already trying
+            // Auto Reconnect Logic
             if(!reconnectInterval) {
                 reconnectInterval = setInterval(() => {
                     console.log("Reconnecting...");
-                    // Retry connection logic
-                    if (peer && !peer.destroyed) {
-                        connectToHost(code, name, true);
-                    } else {
-                        // If peer is destroyed for some reason, restart flow
-                        joinOnlineRoom(true);
-                    }
+                    connectToHost(code, name, true);
                 }, 2000);
             }
-        });
-        
-        // Handle immediate connection errors (Host offline)
-        conn.on('error', (err) => {
-             console.log("Connection Error", err);
-             // Let the close event or interval handle retry
         });
     }
 
@@ -1015,13 +983,13 @@
             }
             
             saveHostGameState(); 
-
-            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
             
-            // FIX: Ensure host updates their own UI immediately
+            // Update Host UI immediately
             renderLobbyPlayers();
 
-            // Always send restore data if needed, or update lobby view
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+
+            // Restore Game State
             if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
                 const playerObj = state.assignments.find(a => a.name === finalName);
                 if(playerObj) {
@@ -1078,21 +1046,16 @@
             state.players = data.players;
             state.playerStatus = data.statuses || {}; 
             renderLobbyPlayers();
-            // FIX: If we are in the waiting screen, ensure the waiting text is correct
-            if(document.getElementById('view-lobby-waiting').classList.contains('active')) {
-                $('client-wait-msg').style.display = 'block';
-                $('client-wait-msg').innerText = "چاوەڕێی سێرڤەر بە یاریەکە دەستپێبکات...";
-            }
         }
         else if(data.type === 'KICKED') {
             showToast("تۆ لە ژوورەک دەرکرایت");
             clearSession();
-            setTimeout(() => performExitCleanup(), 1000);
+            setTimeout(() => exitToMainMenu(), 1000);
         }
         else if(data.type === 'ROOM_LOCKED_ERROR') {
             showToast("ژوورەکە داخراوە!");
             clearSession();
-            setTimeout(() => performExitCleanup(), 1000);
+            setTimeout(() => exitToMainMenu(), 1000);
         }
         else if(data.type === 'SETUP_GAME') {
                 // Host is setting up
@@ -1154,7 +1117,7 @@
         else if(data.type === 'ROOM_CLOSED') {
             showToast("سێرڤەرەکە داخرا!");
             clearSession();
-            setTimeout(() => performExitCleanup(), 1500);
+            setTimeout(() => exitToMainMenu(), 1500);
         }
     }
 
@@ -1350,11 +1313,6 @@
         state.assignments = shuffledPlayers.map((p, i) => ({ name: p, role: roles[i], id: i }));
         state.gamePhase = 'CARDS';
 
-        // Reset any leftover card state from previous games
-        isFlipped = false;
-        isAnimating = false;
-        $('the-card').style.pointerEvents = 'all';
-
         if (state.isOnline) {
             state.flippedCount = 0;
             state.onlineVotes = {};
@@ -1396,12 +1354,7 @@
     function updateCardView() { 
         const card = $('the-card');
         card.classList.remove('flipped');
-        
-        // FIX: Ensure card is clickable for new game
-        card.style.pointerEvents = 'all';
         isFlipped = false;
-        isAnimating = false;
-
         setTimeout(() => {
             const player = state.assignments[state.cardIndex];
             $('current-player-name').innerText = player.name;
@@ -1412,12 +1365,7 @@
     function updateOnlineCardView() { 
         const card = $('the-card');
         card.classList.remove('flipped');
-        
-        // FIX: Ensure card is clickable for new game
-        card.style.pointerEvents = 'all';
         isFlipped = false;
-        isAnimating = false;
-
         applyRoleToCard(state.myRole.role === 'spy');
     }
 
@@ -1869,6 +1817,13 @@
             state.flippedCount = d.flippedCount || 0;
             state.onlineVotes = d.onlineVotes || {};
             
+            // Mark everyone offline initially on restore (except self)
+            // They will become online when their clients reconnect
+            state.players.forEach(p => {
+                if(p !== state.myName) state.playerStatus[p] = 'offline';
+            });
+            state.playerStatus[state.myName] = 'online';
+
             // RESTORE UI BASED ON PHASE
             if(state.gamePhase === 'CARDS') {
                 $('current-player-name').innerText = state.myName;
@@ -1885,6 +1840,11 @@
             } else if(state.gamePhase === 'SETUP') {
                 transitionTo('view-setup');
                 renderTags();
+            } else {
+                // FIXED: Explicitly handle LOBBY restore
+                transitionTo('view-lobby-waiting');
+                renderLobbyPlayers();
+                $('host-controls').style.display = 'flex';
             }
         }
     }
@@ -1913,16 +1873,6 @@
     $('player-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             addPlayer();
-        }
-    });
-
-    // --- CRITICAL FIX: CLEANUP PEER ON REFRESH ---
-    // This ensures the host releases the Peer ID immediately,
-    // allowing clients to detect the disconnect and reconnect properly.
-    window.addEventListener('beforeunload', () => {
-        if (peer) {
-            peer.destroy();
-            peer = null;
         }
     });
 
