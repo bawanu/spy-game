@@ -792,8 +792,8 @@
     let reconnectInterval = null; 
 
     function createOnlineRoom(isRestore = false) {
-        const name = $('my-name-input').value.trim();
-        let customCode = $('room-code-input').value.trim();
+        const name = $('my-name-input').value.trim() || state.myName;
+        let customCode = $('room-code-input').value.trim() || sessionStorage.getItem('spy_room_code');
         
         if(!name) return showToast("تکایە ناوەکەت بنووسە");
         
@@ -892,8 +892,10 @@
     }
 
     function joinOnlineRoom(isRestore = false) {
-        const name = $('my-name-input').value.trim();
-        const code = $('room-code-input').value.trim();
+        // If restoring, use stored values if inputs are empty
+        const name = $('my-name-input').value.trim() || state.myName;
+        const code = $('room-code-input').value.trim() || sessionStorage.getItem('spy_room_code');
+        
         if(!name || !code) return showToast("ناو و کۆد بنووسە");
 
         saveSession(false, name, code);
@@ -916,20 +918,25 @@
     }
 
     function connectToHost(code, name, isRestore) {
-        if(reconnectInterval) clearInterval(reconnectInterval);
+        if(reconnectInterval) {
+             clearInterval(reconnectInterval);
+             reconnectInterval = null;
+        }
 
         const conn = peer.connect("spygame-" + code);
         
         conn.on('open', () => {
             console.log("Connected to Host");
             myConn = conn;
-            if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
-
+            
+            // Send JOIN
             conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
             
-            if(!document.querySelector('.view.active').id.includes('view-cards') && 
-               !document.querySelector('.view.active').id.includes('view-timer') &&
-               !document.querySelector('.view.active').id.includes('view-results')) {
+            // Check if we need to switch view to lobby (if we were disconnected)
+            const currentView = document.querySelector('.view.active').id;
+            if(!currentView.includes('view-cards') && 
+               !currentView.includes('view-timer') &&
+               !currentView.includes('view-results')) {
                 transitionTo('view-lobby-waiting');
             }
             
@@ -943,19 +950,32 @@
         
         conn.on('data', (data) => handleClientData(data));
         
+        // Revised reconnection logic
         conn.on('close', () => {
-            console.log("Disconnected from Host. Attempting reconnect...");
+            console.log("Disconnected from Host.");
             myConn = null;
             $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
             showToast("پەیوەندی پچڕا! هەوڵدەدات پەیوەست بێتەوە...");
             
-            // Auto Reconnect Logic
+            // Only set interval if not already trying
             if(!reconnectInterval) {
                 reconnectInterval = setInterval(() => {
                     console.log("Reconnecting...");
-                    connectToHost(code, name, true);
+                    // Retry connection logic
+                    if (peer && !peer.destroyed) {
+                        connectToHost(code, name, true);
+                    } else {
+                        // If peer is destroyed for some reason, restart flow
+                        joinOnlineRoom(true);
+                    }
                 }, 2000);
             }
+        });
+        
+        // Handle immediate connection errors (Host offline)
+        conn.on('error', (err) => {
+             console.log("Connection Error", err);
+             // Let the close event or interval handle retry
         });
     }
 
@@ -1001,7 +1021,7 @@
             // FIX: Ensure host updates their own UI immediately
             renderLobbyPlayers();
 
-            // Restore Game State
+            // Always send restore data if needed, or update lobby view
             if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
                 const playerObj = state.assignments.find(a => a.name === finalName);
                 if(playerObj) {
@@ -1058,6 +1078,11 @@
             state.players = data.players;
             state.playerStatus = data.statuses || {}; 
             renderLobbyPlayers();
+            // FIX: If we are in the waiting screen, ensure the waiting text is correct
+            if(document.getElementById('view-lobby-waiting').classList.contains('active')) {
+                $('client-wait-msg').style.display = 'block';
+                $('client-wait-msg').innerText = "چاوەڕێی سێرڤەر بە یاریەکە دەستپێبکات...";
+            }
         }
         else if(data.type === 'KICKED') {
             showToast("تۆ لە ژوورەک دەرکرایت");
@@ -1860,9 +1885,6 @@
             } else if(state.gamePhase === 'SETUP') {
                 transitionTo('view-setup');
                 renderTags();
-            } else {
-                // DEFAULT / LOBBY PHASE RESTORATION
-                transitionTo('view-lobby-waiting');
             }
         }
     }
@@ -1891,6 +1913,16 @@
     $('player-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             addPlayer();
+        }
+    });
+
+    // --- CRITICAL FIX: CLEANUP PEER ON REFRESH ---
+    // This ensures the host releases the Peer ID immediately,
+    // allowing clients to detect the disconnect and reconnect properly.
+    window.addEventListener('beforeunload', () => {
+        if (peer) {
+            peer.destroy();
+            peer = null;
         }
     });
 
