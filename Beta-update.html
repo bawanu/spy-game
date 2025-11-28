@@ -749,11 +749,20 @@
         transitionTo('view-setup');
     }
 
+    // FIX: Host exit delay to ensure close message sends
     function exitToMainMenu() {
         if(state.isOnline && state.isHost) {
             broadcast({ type: 'ROOM_CLOSED' });
+            // Wait 1 second before destroying to ensure message flies out
+            setTimeout(() => {
+                performExitCleanup();
+            }, 1000);
+        } else {
+            performExitCleanup();
         }
-        
+    }
+
+    function performExitCleanup() {
         if(peer) { 
             peer.destroy(); 
             peer = null; 
@@ -817,18 +826,21 @@
 
             if(isRestore) {
                 restoreHostGameState();
-                // Ensure UI is refreshed immediately after restore
-                renderLobbyPlayers();
-                showToast("گەڕایتەوە بۆ ژوورەکەت");
+                // Mark everyone else offline until they reconnect
+                state.players.forEach(p => {
+                    if(p !== state.myName) state.playerStatus[p] = 'offline';
+                });
+                renderLobbyPlayers(); 
             } else {
                 transitionTo('view-lobby-waiting');
-                renderLobbyPlayers();
             }
 
+            renderLobbyPlayers();
             $('host-controls').style.display = 'flex';
             $('client-wait-msg').style.display = 'none';
             
             updateLockBtnUI();
+            if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
         });
 
         peer.on('error', (err) => {
@@ -984,8 +996,9 @@
             
             saveHostGameState(); 
             
-            // Update Host UI immediately
+            // --- FIX START: UPDATE HOST UI ---
             renderLobbyPlayers();
+            // --- FIX END ---
 
             broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
 
@@ -1050,12 +1063,12 @@
         else if(data.type === 'KICKED') {
             showToast("تۆ لە ژوورەک دەرکرایت");
             clearSession();
-            setTimeout(() => exitToMainMenu(), 1000);
+            setTimeout(() => performExitCleanup(), 1000);
         }
         else if(data.type === 'ROOM_LOCKED_ERROR') {
             showToast("ژوورەکە داخراوە!");
             clearSession();
-            setTimeout(() => exitToMainMenu(), 1000);
+            setTimeout(() => performExitCleanup(), 1000);
         }
         else if(data.type === 'SETUP_GAME') {
                 // Host is setting up
@@ -1117,7 +1130,7 @@
         else if(data.type === 'ROOM_CLOSED') {
             showToast("سێرڤەرەکە داخرا!");
             clearSession();
-            setTimeout(() => exitToMainMenu(), 1500);
+            setTimeout(() => performExitCleanup(), 1500);
         }
     }
 
@@ -1313,6 +1326,11 @@
         state.assignments = shuffledPlayers.map((p, i) => ({ name: p, role: roles[i], id: i }));
         state.gamePhase = 'CARDS';
 
+        // Reset any leftover card state from previous games
+        isFlipped = false;
+        isAnimating = false;
+        $('the-card').style.pointerEvents = 'all';
+
         if (state.isOnline) {
             state.flippedCount = 0;
             state.onlineVotes = {};
@@ -1354,7 +1372,12 @@
     function updateCardView() { 
         const card = $('the-card');
         card.classList.remove('flipped');
+        
+        // FIX: Ensure card is clickable for new game
+        card.style.pointerEvents = 'all';
         isFlipped = false;
+        isAnimating = false;
+
         setTimeout(() => {
             const player = state.assignments[state.cardIndex];
             $('current-player-name').innerText = player.name;
@@ -1365,7 +1388,12 @@
     function updateOnlineCardView() { 
         const card = $('the-card');
         card.classList.remove('flipped');
+        
+        // FIX: Ensure card is clickable for new game
+        card.style.pointerEvents = 'all';
         isFlipped = false;
+        isAnimating = false;
+
         applyRoleToCard(state.myRole.role === 'spy');
     }
 
@@ -1817,13 +1845,6 @@
             state.flippedCount = d.flippedCount || 0;
             state.onlineVotes = d.onlineVotes || {};
             
-            // Mark everyone offline initially on restore (except self)
-            // They will become online when their clients reconnect
-            state.players.forEach(p => {
-                if(p !== state.myName) state.playerStatus[p] = 'offline';
-            });
-            state.playerStatus[state.myName] = 'online';
-
             // RESTORE UI BASED ON PHASE
             if(state.gamePhase === 'CARDS') {
                 $('current-player-name').innerText = state.myName;
@@ -1840,11 +1861,6 @@
             } else if(state.gamePhase === 'SETUP') {
                 transitionTo('view-setup');
                 renderTags();
-            } else {
-                // FIXED: Explicitly handle LOBBY restore
-                transitionTo('view-lobby-waiting');
-                renderLobbyPlayers();
-                $('host-controls').style.display = 'flex';
             }
         }
     }
