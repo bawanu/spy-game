@@ -1,36 +1,46 @@
-const CACHE_NAME = 'my-game-cache-v2'; // updated
+const CACHE_NAME = 'my-game-cache-v3';
 
-// Files to save for offline use
 const URLS_TO_CACHE = [
-  './',                     
-  './index.html',           
-  './manifest.json',        
-  './favicon.ico',          
-  './apple-touch-icon.png', 
-  './icon-192.png',         
-  './icon-512.png'          
+  './',
+  './index.html',
+  './manifest.json',
+  './favicon.ico',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
+
+  // External CDN Resources
+  'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
+
 // 1. INSTALL
+
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache, downloading files...');
-        return cache.addAll(URLS_TO_CACHE);
-      })
+    caches.open(CACHE_NAME).then(async cache => {
+      console.log('[SW] Opening cache...');
+      try {
+        await cache.addAll(URLS_TO_CACHE);
+      } catch (err) {
+        console.warn('[SW] Some files failed to cache:', err);
+      }
+    })
   );
   self.skipWaiting();
 });
 
+
 // 2. ACTIVATE
+
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames =>
       Promise.all(
         cacheNames.map(name => {
           if (name !== CACHE_NAME) {
-            console.log('Deleting old cache:', name);
+            console.log('[SW] Removing old cache:', name);
             return caches.delete(name);
           }
         })
@@ -40,39 +50,41 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// 3. FETCH (The Fixed Version)
+
+// 3. FETCH — Stale-While-Revalidate
 self.addEventListener('fetch', event => {
-  // cache only GET requests (not POST, etc.)
   if (event.request.method !== 'GET') return;
-  //  FIX: Ignore non-HTTP(S) requests (like chrome-extension://)
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      
-      const fetchPromise = fetch(event.request).then(networkResponse => {
-        
-        // Check if we received a valid response
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'error') {
-          return networkResponse;
-        }
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
 
-        // IMPORTANT: Clone the response IMMEDIATELY.
-        // We clone it here before passing the original to the browser.
-        const responseToCache = networkResponse.clone();
+        // Start network fetch in the background
+        const networkFetch = fetch(event.request)
+          .then(networkResponse => {
+            if (!networkResponse) return networkResponse;
 
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
+            const isOpaque = networkResponse.type === 'opaque';
+            const isOK = networkResponse.status === 200;
 
-        return networkResponse;
-      }).catch(error => {
-        // If fetch fails (offline)
-        console.log('Fetch failed:', error);
+            if (isOK || isOpaque) {
+              try {
+                cache.put(event.request, networkResponse.clone());
+              } catch (err) {
+                console.warn('[SW] Cache update failed:', err);
+              }
+            }
+
+            return networkResponse;
+          })
+          .catch(() => {
+            console.log('[SW] Network failed; using cache if available.');
+            return cachedResponse;
+          });
+
+        return cachedResponse || networkFetch;
       });
-
-      // Return the cached response if present, otherwise wait for network
-      return cachedResponse || fetchPromise;
     })
   );
 });
