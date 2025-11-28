@@ -487,7 +487,8 @@
 
         <!-- VIEW 2: CARDS -->
         <div id="view-cards" class="view">
-            <div class="top-bar" style="justify-content: center;">
+            <div class="top-bar" style="justify-content: center; position:relative;">
+                <div class="icon-btn" onclick="exitToMainMenu()" style="position:absolute; left:0;"><i class="fas fa-sign-out-alt"></i></div>
                 <h2 style="margin:0; font-size: 1rem; color:var(--text-muted);">ڕۆڵەکان</h2>
             </div>
 
@@ -533,7 +534,11 @@
 
         <!-- VIEW 4: TIMER -->
         <div id="view-timer" class="view">
-             <div class="top-bar"><h2 style="margin:0;">کات ماوە</h2></div>
+             <div class="top-bar">
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-sign-out-alt"></i></div>
+                 <h2 style="margin:0; flex-grow:1; text-align:center;">کات ماوە</h2>
+                 <div style="width:40px;"></div> <!-- Spacer -->
+             </div>
              <div class="scroll-content" style="justify-content: center;">
                 <div class="timer-ring" id="timer-ring">
                     <div class="time-text shimmer-text" id="timer-val">00:00</div>
@@ -557,6 +562,9 @@
 
         <!-- VIEW 5: RESULTS & VOTING -->
         <div id="view-results" class="view">
+            <div class="top-bar">
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-sign-out-alt"></i></div>
+            </div>
             <div class="scroll-content" style="align-items: stretch; justify-content: start;">
                 <!-- Voting Phase -->
                 <div id="phase-voting" class="result-phase-container">
@@ -769,6 +777,11 @@
         }
 
         function exitToMainMenu() {
+            // IF ONLINE CLIENT EXITING MID-GAME: SEND LEAVE SIGNAL
+            if(state.isOnline && !state.isHost && myConn && myConn.open) {
+                myConn.send({ type: 'LEAVE', name: state.myName });
+            }
+
             clearSession();
             if(state.isOnline && state.isHost) {
                 broadcast({ type: 'ROOM_CLOSED' });
@@ -944,7 +957,7 @@
                             spiesCount: state.numSpies,
                             guesses: state.maxGuesses,
                             timeLeft: state.timeLeft,
-                            players: state.players,
+                            players: state.players, // CRITICAL FIX: Send updated player list
                             assignments: state.assignments, // Send for voting
                             votes: state.onlineVotes // Send current votes
                         });
@@ -952,6 +965,24 @@
                 } else {
                     // Just update lobby
                     renderLobbyPlayers();
+                }
+            }
+            else if(data.type === 'LEAVE') {
+                // Client Exited Mid-Game
+                showToast(data.name + " لە یاری دەرچوو");
+                
+                // Remove player
+                state.players = state.players.filter(p => p !== data.name);
+                
+                // Remove their vote if they voted
+                if(state.onlineVotes[data.name]) delete state.onlineVotes[data.name];
+
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+                saveHostGameState();
+
+                // Recalculate votes (in case their exit triggers completion)
+                if(state.gamePhase === 'VOTING') {
+                     checkVoteCompletion();
                 }
             }
             else if(data.type === 'FLIPPED_BACK') {
@@ -1002,7 +1033,8 @@
             }
             else if(data.type === 'RESTORE_GAME') {
                 // RESTORE LOGIC
-                loadGameData(data);
+                loadGameData(data); // FIX: Loads state.players now
+                
                 if(data.phase === 'CARDS') {
                     transitionTo('view-cards');
                     updateOnlineCardView();
@@ -1012,7 +1044,7 @@
                     $('client-timer-msg').style.display = 'block';
                     updateTimerDisplay(data.time * 60);
                 } else if (data.phase === 'VOTING') {
-                    initVotingPhase();
+                    initVotingPhase(); // FIX: Now has state.players to build grid
                     transitionTo('view-results');
                     // Restore vote progress text
                     const vCount = Object.keys(data.votes || {}).length;
@@ -1062,7 +1094,9 @@
             state.numSpies = data.spiesCount;
             state.maxGuesses = data.guesses;
             state.timeLeft = data.timeLeft || (data.time * 60);
-            state.assignments = data.assignments || []; // Important for voting
+            state.assignments = data.assignments || []; 
+            // FIXED: Ensure player list is updated so Voting Grid is not empty
+            if(data.players) state.players = data.players;
         }
 
         function broadcast(msg) {
@@ -1153,7 +1187,7 @@
             if (key === 'custom') {
                 const container = $('custom-words-container');
                 container.style.display = state.selectedCats.has('custom') ? 'block' : 'none';
-                if(state.selectedCats.has('custom')) setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                if(state.selectedCats.has('custom') setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
             }
             playSfx('click');
         }
