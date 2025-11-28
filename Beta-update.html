@@ -387,7 +387,7 @@
         <!-- VIEW 0.7: WAITING LOBBY -->
         <div id="view-lobby-waiting" class="view">
              <div class="top-bar">
-                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-times"></i></div>
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
              </div>
              <div class="scroll-content">
                  <h2>ژووری چاوەڕوانی</h2>
@@ -487,11 +487,13 @@
 
         <!-- VIEW 2: CARDS -->
         <div id="view-cards" class="view">
-            <div class="top-bar" style="justify-content: space-between;">
-                <div></div>
+            <!-- Add Exit Button Here -->
+            <div class="top-bar">
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+            </div>
+            
+            <div class="top-bar" style="justify-content: center; margin-top:-50px;">
                 <h2 style="margin:0; font-size: 1rem; color:var(--text-muted);">ڕۆڵەکان</h2>
-                <!-- NEW EXIT BUTTON -->
-                <div class="icon-btn" onclick="confirmExit()" style="border-color: var(--accent); color: var(--accent);"><i class="fas fa-sign-out-alt"></i></div>
             </div>
 
             <div class="scroll-content" style="justify-content: center;">
@@ -537,10 +539,8 @@
         <!-- VIEW 4: TIMER -->
         <div id="view-timer" class="view">
              <div class="top-bar">
-                 <div></div>
-                 <h2 style="margin:0;">کات ماوە</h2>
-                 <!-- NEW EXIT BUTTON -->
-                 <div class="icon-btn" onclick="confirmExit()" style="border-color: var(--accent); color: var(--accent);"><i class="fas fa-sign-out-alt"></i></div>
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+                 <h2 style="margin:0; flex:1; text-align:center; padding-left:40px;">کات ماوە</h2>
              </div>
              <div class="scroll-content" style="justify-content: center;">
                 <div class="timer-ring" id="timer-ring">
@@ -565,13 +565,9 @@
 
         <!-- VIEW 5: RESULTS & VOTING -->
         <div id="view-results" class="view">
-            <!-- NEW TOP BAR FOR EXIT -->
-            <div class="top-bar">
-                 <div></div>
-                 <!-- NEW EXIT BUTTON -->
-                 <div class="icon-btn" onclick="confirmExit()" style="border-color: var(--accent); color: var(--accent);"><i class="fas fa-sign-out-alt"></i></div>
-            </div>
-
+             <div class="top-bar">
+                 <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+             </div>
             <div class="scroll-content" style="align-items: stretch; justify-content: start;">
                 <!-- Voting Phase -->
                 <div id="phase-voting" class="result-phase-container">
@@ -783,28 +779,31 @@
             transitionTo('view-setup');
         }
 
-        function confirmExit() {
-            if(confirm("دڵنیایت دەتەوێت لە یاریەکە دەربچیت؟")) {
-                exitToMainMenu();
-            }
-        }
-
         function exitToMainMenu() {
-            clearSession();
             if(state.isOnline && state.isHost) {
                 broadcast({ type: 'ROOM_CLOSED' });
             }
+            
+            // Close connections if any
+            if(peer) { 
+                peer.destroy(); 
+                peer = null; 
+            }
+            hostConnections = [];
+            myConn = null;
+
+            // Reset state
             state.players = [];
             state.isOnline = false;
             state.gamePhase = 'LOBBY';
-            if(peer) { peer.destroy(); peer = null; }
-            hostConnections = [];
-            myConn = null;
             state.isRoomLocked = false;
             
+            // Clear inputs
             $('player-input').value = '';
             $('my-name-input').value = '';
             $('room-code-input').value = '';
+            
+            clearSession(); // Clear session storage
             renderTags();
             transitionTo('view-mode');
         }
@@ -948,6 +947,9 @@
                      state.players.push(data.name);
                      broadcast({ type: 'UPDATE_LOBBY', players: state.players });
                      saveHostGameState(); // Save new player list
+                } else {
+                    // FIX: Even if known, send the lobby update to THIS connection so they see the list
+                    conn.send({ type: 'UPDATE_LOBBY', players: state.players });
                 }
                 conn.playerName = data.name; 
 
@@ -965,7 +967,7 @@
                             spiesCount: state.numSpies,
                             guesses: state.maxGuesses,
                             timeLeft: state.timeLeft,
-                            players: state.players, // Send full player list for Grid
+                            players: state.players, // FIX: MUST SEND PLAYERS LIST
                             assignments: state.assignments, // Send for voting
                             votes: state.onlineVotes // Send current votes
                         });
@@ -1023,6 +1025,9 @@
             }
             else if(data.type === 'RESTORE_GAME') {
                 // RESTORE LOGIC
+                // FIX: Update players list immediately
+                if(data.players) state.players = data.players;
+                
                 loadGameData(data);
                 if(data.phase === 'CARDS') {
                     transitionTo('view-cards');
@@ -1033,6 +1038,7 @@
                     $('client-timer-msg').style.display = 'block';
                     updateTimerDisplay(data.time * 60);
                 } else if (data.phase === 'VOTING') {
+                    // Initialize voting will now use the correct state.players
                     initVotingPhase();
                     transitionTo('view-results');
                     // Restore vote progress text
@@ -1083,9 +1089,7 @@
             state.numSpies = data.spiesCount;
             state.maxGuesses = data.guesses;
             state.timeLeft = data.timeLeft || (data.time * 60);
-            state.assignments = data.assignments || []; 
-            // FIXED: Ensure players list is populated for the grid
-            if(data.players) state.players = data.players;
+            state.assignments = data.assignments || []; // Important for voting
         }
 
         function broadcast(msg) {
@@ -1488,7 +1492,6 @@
             const grid = $('suspects-grid');
             grid.innerHTML = '';
             
-            // Critical Fix: Use state.players which is now correctly restored
             state.players.forEach(playerName => {
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
@@ -1805,6 +1808,13 @@
                 else joinOnlineRoom(true);
             }
         }
+        
+        // Add listener for 'Enter' key in player input
+        $('player-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                addPlayer();
+            }
+        });
 
         window.addEventListener('load', checkRestoreSession);
 
