@@ -710,7 +710,7 @@
         };
 
         // --- STATE MANAGEMENT ---
-        const state = {
+        let state = {
             players: [], numSpies: 1, gameTime: 5, maxGuesses: 1, guessesLeft: 1, manualGuessSet: false,
             selectedCats: new Set([]), isSoundOn: true,
             isHapticsOn: true,
@@ -720,10 +720,12 @@
             isHost: false,
             myName: "",
             myRole: null, // {name, role, id}
-            flippedCount: 0, // for host to track
-            onlineVotes: {}, // {voter: suspect}
-            mySelectedSuspect: null, // For client voting UI
-            isRoomLocked: false // New Lock State
+            flippedCount: 0, 
+            onlineVotes: {}, 
+            mySelectedSuspect: null, 
+            isRoomLocked: false,
+            // NEW: GAME PHASE TRACKING
+            gamePhase: 'LOBBY' // 'LOBBY', 'SETUP', 'CARDS', 'TIMER', 'VOTING'
         };
 
         // --- DOM HELPERS ---
@@ -757,9 +759,8 @@
         // --- MODE SELECTION ---
         function startLocalMode() {
             state.isOnline = false;
-            state.isHost = true; // Local is always host
+            state.isHost = true;
             
-            // UI Adjustment for Local
             $('btn-exit').style.display = 'grid';
             $('btn-back-lobby').style.display = 'none';
             $('player-input-section').style.display = 'block';
@@ -768,103 +769,86 @@
         }
 
         function exitToMainMenu() {
-            clearSession(); // CLEAR SESSION ON EXIT
-
-            // STOP SERVER SIGNAL if Host
+            clearSession();
             if(state.isOnline && state.isHost) {
                 broadcast({ type: 'ROOM_CLOSED' });
             }
-
-            // Reset essential state
             state.players = [];
             state.isOnline = false;
+            state.gamePhase = 'LOBBY';
             if(peer) { peer.destroy(); peer = null; }
             hostConnections = [];
             myConn = null;
             state.isRoomLocked = false;
             
-            // Clear inputs
             $('player-input').value = '';
             $('my-name-input').value = '';
             $('room-code-input').value = '';
             renderTags();
-            
             transitionTo('view-mode');
         }
         
-        // --- ONLINE LOGIC (PeerJS) ---
+        // --- ONLINE LOGIC ---
         let peer = null;
-        let myConn = null; // Client connection to host
-        let hostConnections = []; // Host list of connections
+        let myConn = null; 
+        let hostConnections = []; 
 
-        // MODIFIED: Accepts isRestore
         function createOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
-            
-            // Logic: If restoring, we might already have the code in the input
             let customCode = $('room-code-input').value.trim();
             
             if(!name) return showToast("تکایە ناوەکەت بنووسە");
             
-            // Generate Random if empty and NOT restoring
             if(!customCode) {
                 customCode = Math.floor(1000 + Math.random() * 9000).toString();
-                $('room-code-input').value = customCode; // Update input so it saves correctly
+                $('room-code-input').value = customCode; 
             }
             
             state.myName = name;
             state.isOnline = true;
             state.isHost = true;
-            state.players = [name]; 
-            state.isRoomLocked = false;
+            if(!isRestore) state.players = [name]; // Only reset if new
             
-            // SAVE SESSION HERE
             saveSession(true, name, customCode);
-
-            // If Peer already exists (rare edge case), destroy it first
             if(peer) peer.destroy();
 
             peer = new Peer("spygame-" + customCode);
             
             peer.on('open', (id) => {
-                console.log('My peer ID is: ' + id);
+                console.log('Host ID: ' + id);
                 $('display-room-code').innerText = customCode;
-                transitionTo('view-lobby-waiting');
+                
+                // RESTORE HOST STATE IF EXISTS
+                if(isRestore) {
+                    restoreHostGameState();
+                } else {
+                    transitionTo('view-lobby-waiting');
+                }
+
                 renderLobbyPlayers();
                 $('host-controls').style.display = 'flex';
                 $('client-wait-msg').style.display = 'none';
                 
-                // Reset Lock Button State
-                const btn = $('btn-lock-room');
-                btn.className = "primary-btn danger";
-                btn.innerHTML = `<span>داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
-
+                updateLockBtnUI();
                 if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
             });
 
             peer.on('error', (err) => {
-                console.error(err);
                 if(err.type === 'unavailable-id') {
-                    // If refreshing quickly, the ID might still be 'taken' by the previous session
                     if(isRestore) {
-                         showToast("چرکەیەک چاوەڕێ بە، پەیوەندی دروست دەبێتەوە...");
-                         setTimeout(() => createOnlineRoom(true), 1500); // Retry logic
+                         showToast("پەیوەندی دروست دەبێتەوە...");
+                         setTimeout(() => createOnlineRoom(true), 1500); 
                     } else {
-                         showToast("ئەم کۆدە بەکارهاتووە، تکایە دانەیەکی تر بنووسە");
-                         clearSession(); // Clear if failed
+                         showToast("ئەم کۆدە بەکارهاتووە");
+                         clearSession(); 
                     }
-                }
-                else showToast("هەڵەی پەیوەندی: دڵنیابە ئینتەرنێت هەیە");
+                } else showToast("هەڵەی پەیوەندی");
             });
 
             peer.on('connection', (conn) => {
-                if(state.isRoomLocked) {
-                    conn.on('open', () => { conn.send({ type: 'ROOM_LOCKED_ERROR' }); setTimeout(() => conn.close(), 500); });
-                    return;
-                }
+                // DON'T check lock here. Wait for JOIN data.
                 hostConnections.push(conn);
                 conn.on('data', (data) => handleHostData(data, conn));
-                // Remove connection on close
                 conn.on('close', () => {
                      hostConnections = hostConnections.filter(c => c !== conn);
                 });
@@ -873,36 +857,28 @@
         
         function toggleRoomLock() {
             state.isRoomLocked = !state.isRoomLocked;
+            updateLockBtnUI();
+            showToast(state.isRoomLocked ? "ژوورەکە داخرا" : "ژوورەکە کرایەوە");
+            saveHostGameState(); // Save state
+        }
+
+        function updateLockBtnUI() {
             const btn = $('btn-lock-room');
             if(state.isRoomLocked) {
                 btn.className = "primary-btn success";
                 btn.innerHTML = `<span>کردنەوەی ژوور</span> <i class="fas fa-lock-open"></i>`;
-                showToast("ژوورەکە داخرا. کەس ناتوانێت بێتە ژوورەوە.");
             } else {
                 btn.className = "primary-btn danger";
                 btn.innerHTML = `<span>داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
-                showToast("ژوورەکە کرایەوە.");
-            }
-        }
-        
-        function stopServer() {
-            if(confirm("دڵنیایت دەوێت سێرڤەرەکە داخەیت؟")) {
-                broadcast({ type: 'ROOM_CLOSED' });
-                setTimeout(() => {
-                    exitToMainMenu();
-                }, 300);
             }
         }
 
-        // MODIFIED: Accepts isRestore
         function joinOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
             const code = $('room-code-input').value.trim();
             if(!name || !code) return showToast("ناو و کۆد بنووسە");
 
-            // SAVE SESSION HERE
             saveSession(false, name, code);
-
             state.myName = name;
             state.isOnline = true;
             state.isHost = false;
@@ -914,7 +890,6 @@
                 const conn = peer.connect("spygame-" + code);
                 conn.on('open', () => {
                     myConn = conn;
-                    // Send Join Request with restore flag
                     conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
                     
                     transitionTo('view-lobby-waiting');
@@ -928,85 +903,80 @@
                 conn.on('data', (data) => handleClientData(data));
                 
                 peer.on('error', (err) => {
-                    clearSession(); // Clear if room not found
+                    clearSession(); 
                     showToast("کۆدەکە هەڵەیە یان سێرڤەر نەماوە");
                     exitToMainMenu();
                 });
             });
         }
 
-        // HOST HANDLERS
+        // --- HOST DATA HANDLER (The Brain) ---
         function handleHostData(data, conn) {
             if(data.type === 'JOIN') {
-                // Check if player is already in list (Rejoining)
-                const isRejoining = state.players.includes(data.name);
-
-                if (!isRejoining) {
-                     state.players.push(data.name);
-                     conn.playerName = data.name; 
-                     renderLobbyPlayers();
-                     broadcast({ type: 'UPDATE_LOBBY', players: state.players });
-                } else {
-                     // If rejoining, just update the connection reference
-                     conn.playerName = data.name;
-                     // Remove old stale connection for this name if exists
-                     hostConnections = hostConnections.filter(c => c.playerName !== data.name || c === conn);
+                const isKnown = state.players.includes(data.name);
+                
+                // 1. LOCK CHECK (Allow if known player)
+                if (state.isRoomLocked && !isKnown) {
+                     conn.send({ type: 'ROOM_LOCKED_ERROR' });
+                     setTimeout(() => conn.close(), 500);
+                     return;
                 }
 
-                // CRITICAL FIX: If game is ALREADY RUNNING, send game state to this specific user
-                if (state.currentWord && state.assignments.length > 0) {
-                    const playerObj = state.assignments.find(a => a.name === data.name);
-                    if (playerObj) {
-                        // Send Role
-                        conn.send({
-                            type: 'START_GAME',
-                            roleObj: playerObj,
-                            time: state.gameTime,
-                            word: state.currentWord,
-                            spiesCount: state.numSpies,
-                            guesses: state.maxGuesses
-                        });
+                // 2. Add to list if new
+                if (!isKnown) {
+                     state.players.push(data.name);
+                     broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+                     saveHostGameState(); // Save new player list
+                }
+                conn.playerName = data.name; 
 
-                        // If Timer is running, sync it
-                        if (state.timerRunning) {
-                             conn.send({ 
-                                 type: 'SYNC_TIMER', 
-                                 timeLeft: state.timeLeft, 
-                                 running: true, 
-                                 totalTime: state.gameTime * 60 
-                             });
-                        }
+                // 3. IMMEDIATE GAME RESTORE (Sync State)
+                if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
+                    const playerObj = state.assignments.find(a => a.name === data.name);
+                    if(playerObj) {
+                        // Send Basic Info
+                        conn.send({
+                            type: 'RESTORE_GAME',
+                            phase: state.gamePhase,
+                            roleObj: playerObj,
+                            word: state.currentWord,
+                            time: state.gameTime,
+                            spiesCount: state.numSpies,
+                            guesses: state.maxGuesses,
+                            timeLeft: state.timeLeft,
+                            players: state.players,
+                            assignments: state.assignments, // Send for voting
+                            votes: state.onlineVotes // Send current votes
+                        });
                     }
+                } else {
+                    // Just update lobby
+                    renderLobbyPlayers();
                 }
             }
             else if(data.type === 'FLIPPED_BACK') {
                 state.flippedCount++;
                 if(state.flippedCount >= state.players.length) {
-                    // All flipped, start timer logic
                     determineStarter(); 
                     const starter = $('starter-name-display').innerText;
                     broadcast({ type: 'SHOW_STARTER', starterName: starter });
                 }
             }
             else if(data.type === 'SUBMIT_VOTE') {
-                // Collect votes
                 if(!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[data.voter] = data.suspect;
+                saveHostGameState(); // Save votes
                 
-                // Broadcast progress
                 const voteCount = Object.keys(state.onlineVotes).length;
                 const totalPlayers = state.players.length;
-                
                 broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
-                
-                // If everyone voted, calculate result
                 if(voteCount >= totalPlayers) {
                     processVotingResult();
                 }
             }
         }
 
-        // CLIENT HANDLERS
+        // --- CLIENT DATA HANDLER ---
         function handleClientData(data) {
             if(data.type === 'UPDATE_LOBBY') {
                 state.players = data.players;
@@ -1018,26 +988,36 @@
                 setTimeout(() => exitToMainMenu(), 1000);
             }
             else if(data.type === 'ROOM_LOCKED_ERROR') {
-                showToast("ژوورەکە داخراوە، ناتوانیت بچیتە ژوورەوە");
-                peer.destroy();
+                showToast("ژوورەکە داخراوە!");
                 clearSession();
                 setTimeout(() => exitToMainMenu(), 1000);
             }
             else if(data.type === 'SETUP_GAME') {
-                // Host moved to setup
+                 // Host is setting up
             }
             else if(data.type === 'START_GAME') {
-                state.myRole = data.roleObj;
-                state.gameTime = data.time;
-                state.currentWord = data.word; 
-                state.numSpies = data.spiesCount;
-                state.maxGuesses = data.guesses;
-                
-                // Transition
-                $('current-player-name').innerText = state.myName;
-                $('card-instruction').innerText = "کارتەکەت ببینە";
+                loadGameData(data);
                 transitionTo('view-cards');
                 updateOnlineCardView();
+            }
+            else if(data.type === 'RESTORE_GAME') {
+                // RESTORE LOGIC
+                loadGameData(data);
+                if(data.phase === 'CARDS') {
+                    transitionTo('view-cards');
+                    updateOnlineCardView();
+                } else if (data.phase === 'TIMER') {
+                    transitionTo('view-timer');
+                    $('host-timer-controls').style.display = 'none';
+                    $('client-timer-msg').style.display = 'block';
+                    updateTimerDisplay(data.time * 60);
+                } else if (data.phase === 'VOTING') {
+                    initVotingPhase();
+                    transitionTo('view-results');
+                    // Restore vote progress text
+                    const vCount = Object.keys(data.votes || {}).length;
+                    $('voting-status').innerText = `دەنگدان... (${vCount} / ${state.players.length})`;
+                }
             }
             else if(data.type === 'SHOW_STARTER') {
                  $('starter-name-display').innerText = data.starterName;
@@ -1048,7 +1028,7 @@
             else if(data.type === 'SYNC_TIMER') {
                 state.timeLeft = data.timeLeft;
                 state.timerRunning = data.running;
-                if(document.getElementById('view-timer').classList.contains('active') === false) {
+                if(!document.getElementById('view-timer').classList.contains('active')) {
                      transitionTo('view-timer');
                      $('host-timer-controls').style.display = 'none';
                      $('client-timer-msg').style.display = 'block';
@@ -1059,11 +1039,9 @@
                  endGame();
             }
             else if(data.type === 'VOTE_PROGRESS') {
-                // Update text: 3/5 voted
                 $('voting-status').innerText = `دەنگدان... (${data.count} / ${data.total})`;
             }
             else if(data.type === 'VOTE_RESULT') {
-                // FIXED: Receive assignments list to know who was spy
                 revealEverything(data.winner, data.assignments);
             }
             else if(data.type === 'RETURN_TO_LOBBY') {
@@ -1077,21 +1055,28 @@
             }
         }
 
+        function loadGameData(data) {
+            state.myRole = data.roleObj;
+            state.gameTime = data.time;
+            state.currentWord = data.word; 
+            state.numSpies = data.spiesCount;
+            state.maxGuesses = data.guesses;
+            state.timeLeft = data.timeLeft || (data.time * 60);
+            state.assignments = data.assignments || []; // Important for voting
+        }
+
         function broadcast(msg) {
             hostConnections.forEach(c => c.send(msg));
         }
 
-        // --- LOBBY PLAYERS + KICK LOGIC ---
+        // --- LOBBY LOGIC ---
         function renderLobbyPlayers() {
             const container = $('lobby-players-list');
             container.innerHTML = state.players.map((p, index) => {
                 let html = `<div class="tag">${p} ${p === state.myName ? '(تۆ)' : ''}`;
-                
-                // If Host and not me, add kick button
                 if(state.isHost && p !== state.myName) {
                     html += `<div class="kick-btn" onclick="kickPlayer(${index})"><i class="fas fa-times"></i></div>`;
                 }
-                
                 html += `</div>`;
                 return html;
             }).join('');
@@ -1100,24 +1085,20 @@
         function kickPlayer(index) {
             const playerToKick = state.players[index];
             if(!playerToKick) return;
-            
-            // Remove from list
             state.players.splice(index, 1);
-            
-            // Find connection and send KICK message
             const connIdx = hostConnections.findIndex(c => c.playerName === playerToKick);
             if(connIdx !== -1) {
-                const conn = hostConnections[connIdx];
-                conn.send({ type: 'KICKED' });
-                // Remove connection
+                hostConnections[connIdx].send({ type: 'KICKED' });
                 hostConnections.splice(connIdx, 1);
             }
-            
             renderLobbyPlayers();
             broadcast({ type: 'UPDATE_LOBBY', players: state.players });
+            saveHostGameState();
         }
 
         function setupOnlineGame() {
+            state.gamePhase = 'SETUP';
+            saveHostGameState();
             transitionTo('view-setup');
             $('btn-exit').style.display = 'none';
             $('btn-back-lobby').style.display = 'grid';
@@ -1127,28 +1108,27 @@
         }
         
         function backToLobby() {
+            state.gamePhase = 'LOBBY';
+            saveHostGameState();
             transitionTo('view-lobby-waiting');
         }
 
         function resetGameToLobby() {
             if(state.isOnline) {
                 if(state.isHost) {
-                    // Send everyone back to lobby
                     broadcast({ type: 'RETURN_TO_LOBBY' });
+                    state.gamePhase = 'LOBBY';
+                    saveHostGameState();
                     transitionTo('view-lobby-waiting');
-                    // Reset game vars
                     state.flippedCount = 0;
                     state.onlineVotes = {};
-                } else {
-                    showToast("تەنها سێرڤەر دەتوانێت یاری نوێ بکات");
                 }
             } else {
-                // Local Mode
                 transitionTo('view-setup');
             }
         }
 
-        // --- SETUP SCREEN LOGIC ---
+        // --- SETUP LOGIC ---
         const setupGrid = () => {
             const grid = $('topics-container');
             grid.innerHTML = '';
@@ -1172,15 +1152,10 @@
             }
             if (key === 'custom') {
                 const container = $('custom-words-container');
-                if (state.selectedCats.has('custom')) {
-                    container.style.display = 'block';
-                    setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-                } else {
-                    container.style.display = 'none';
-                }
+                container.style.display = state.selectedCats.has('custom') ? 'block' : 'none';
+                if(state.selectedCats.has('custom')) setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
             }
             playSfx('click');
-            triggerVibrate(10);
         }
 
         function addPlayer() {
@@ -1191,25 +1166,15 @@
                 renderTags();
                 input.value = '';
                 playSfx('pop');
-            } else if(state.players.includes(name)) {
-                input.classList.add('error-shake');
-                showToast("ئەم ناوە پێشتر داخڵ کراوە!");
-                setTimeout(()=>input.classList.remove('error-shake'), 500);
-            } else if(!name) {
-                showToast("تکایە ناوێک بنووسە!");
             }
         }
-        $('player-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') addPlayer(); });
 
         function renderTags() {
             const c = $('players-container');
-            // Allow delete only if local 
             const showX = !state.isOnline; 
-            
             c.innerHTML = state.players.map((p,i) => 
                 `<div class="tag">${p} ${showX ? `<i class="fas fa-times" onclick="removePlayer(${i})"></i>` : ''}</div>`
             ).join('');
-            
             const spyLimit = Math.max(1, Math.floor(state.players.length / 2));
             if(parseInt($('spy-count').innerText) > spyLimit) $('spy-count').innerText = spyLimit;
         }
@@ -1217,40 +1182,33 @@
         function removePlayer(i) {
             state.players.splice(i, 1);
             renderTags();
-            playSfx('click');
         }
 
         function adjVal(id, amount) {
-            if(state.isOnline && !state.isHost) return; // Only host edits
-
+            if(state.isOnline && !state.isHost) return; 
             const el = $(id);
             let val = parseInt(el.innerText);
             
             if(id === 'spy-count') {
                 const max = Math.max(1, Math.floor(state.players.length / 2)) || 1;
                 val += amount;
-                if(val < 1) val = 1;
-                if(val > max && state.players.length > 2) val = max; 
+                if(val < 1) val = 1; if(val > max && state.players.length > 2) val = max; 
                 state.numSpies = val;
-                el.innerText = val;
-
-                if (!state.manualGuessSet) $('guess-count').innerText = val;
             } else if (id === 'guess-count') {
                 state.manualGuessSet = true;
                 val += amount;
                 if(val < 1) val = 1; if(val > 10) val = 10;
                 state.maxGuesses = val;
-                el.innerText = val;
             } else {
                 val += amount;
                 if(val < 1) val = 1; if(val > 60) val = 60;
                 state.gameTime = val;
-                el.innerText = val;
             }
+            el.innerText = val;
             playSfx('click');
         }
 
-        // --- GAME INITIALIZATION ---
+        // --- GAME START ---
         function initGame() {
             if (state.players.length < 3) { showToast("لانی کەم دەبێت ٣ یاریزان هەبن"); return; }
             if (state.selectedCats.size === 0) { showToast("تکایە لانی کەم بابەتێک هەڵبژێرە"); return; }
@@ -1270,7 +1228,7 @@
                 }
             });
 
-            if(pool.length === 0) { showToast("هەڵەیەک ڕوویدا لە دۆزینەوەی وشەکان"); return; }
+            if(pool.length === 0) { showToast("هەڵەیەک ڕوویدا"); return; }
             state.currentWord = pool[Math.floor(Math.random() * pool.length)];
 
             // Assign Roles
@@ -1279,17 +1237,14 @@
             let shuffledPlayers = [...state.players].sort(() => Math.random() - 0.5);
 
             state.assignments = shuffledPlayers.map((p, i) => ({ name: p, role: roles[i], id: i }));
+            state.gamePhase = 'CARDS';
 
             if (state.isOnline) {
-                // Host logic: Send roles to everyone
                 state.flippedCount = 0;
                 state.onlineVotes = {};
-                
-                // My Role (Host)
                 const hostObj = state.assignments.find(a => a.name === state.myName);
                 state.myRole = hostObj;
                 
-                // Send to clients
                 hostConnections.forEach(conn => {
                     const playerObj = state.assignments.find(a => a.name === conn.playerName);
                     if(playerObj) {
@@ -1304,14 +1259,13 @@
                     }
                 });
 
-                // Host UI
+                saveHostGameState(); // Save game active state
                 $('current-player-name').innerText = state.myName;
                 $('card-instruction').innerText = "کارتەکەت ببینە";
                 transitionTo('view-cards');
                 updateOnlineCardView();
 
             } else {
-                // Local Mode
                 state.cardIndex = 0;
                 showCardScreen();
             }
@@ -1319,11 +1273,11 @@
 
         // --- CARD LOGIC ---
         let isFlipped = false;
-        let isAnimating = false; // Prevents rapid clicks
+        let isAnimating = false; 
 
         function showCardScreen() { transitionTo('view-cards'); updateCardView(); }
         
-        function updateCardView() { // LOCAL
+        function updateCardView() { 
             const card = $('the-card');
             card.classList.remove('flipped');
             isFlipped = false;
@@ -1334,7 +1288,7 @@
             }, 200);
         }
 
-        function updateOnlineCardView() { // ONLINE
+        function updateOnlineCardView() { 
             const card = $('the-card');
             card.classList.remove('flipped');
             isFlipped = false;
@@ -1356,7 +1310,7 @@
         }
 
         function flipCard() {
-            if(isAnimating) return; // Prevent glitch
+            if(isAnimating) return; 
             isAnimating = true;
 
             const card = $('the-card');
@@ -1367,7 +1321,6 @@
                 triggerVibrate(50);
                 setTimeout(() => isAnimating = false, 600);
             } else {
-                // Flipped Back
                 playSfx('flip'); 
                 card.classList.remove('flipped'); 
                 isFlipped = false;
@@ -1375,22 +1328,19 @@
                 setTimeout(() => {
                     isAnimating = false;
                     if (state.isOnline) {
-                        // Lock card and wait
                         $('the-card').style.pointerEvents = 'none';
                         $('waiting-others-msg').style.display = 'block';
                         
                         if(state.isHost) {
-                            state.flippedCount++; // Host counts himself
+                            state.flippedCount++; 
                             if(state.flippedCount >= state.players.length) {
                                 determineStarter();
                                 broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
                             }
                         } else {
-                            // Send signal to host
                             myConn.send({ type: 'FLIPPED_BACK' });
                         }
                     } else {
-                        // Local logic
                         setTimeout(() => {
                             state.cardIndex++;
                             if(state.cardIndex >= state.assignments.length) determineStarter();
@@ -1411,29 +1361,31 @@
 
         // --- TIMER ---
         function startTimerView() { 
-            // In Online, only Host triggers this via button "باشە"
             if(state.isOnline && !state.isHost) {
                  $('start-btn').style.display='none'; 
                  return;
             }
+            // State update
+            state.gamePhase = 'TIMER';
+            if(state.isOnline) saveHostGameState();
+
             transitionTo('view-timer'); 
             startTimer(state.gameTime * 60); 
         }
 
         function startTimer(seconds) {
             state.timeLeft = seconds;
-            const totalTime = state.gameTime * 60; // Keep reference
+            const totalTime = state.gameTime * 60; 
             updateTimerDisplay(totalTime);
             clearInterval(state.timerInt);
             state.timerRunning = true;
             $('pause-icon').className = "fas fa-pause";
             
-            // UI Tweaks for Client - HIDE BUTTONS
             if(state.isOnline && !state.isHost) {
                 $('host-timer-controls').style.display = 'none';
                 $('client-timer-msg').style.display = 'block';
             } else {
-                $('host-timer-controls').style.display = 'flex'; // Fixed display flex
+                $('host-timer-controls').style.display = 'flex'; 
                 $('client-timer-msg').style.display = 'none';
             }
 
@@ -1458,9 +1410,7 @@
             $('timer-val').innerText = `${m}:${s}`;
             const pct = ((total - state.timeLeft) / total) * 100;
             $('timer-ring').style.setProperty('--progress', `${pct}%`);
-            if(state.timeLeft <= 10 && state.timeLeft > 0) {
-                 playSfx('tick');
-            }
+            if(state.timeLeft <= 10 && state.timeLeft > 0) playSfx('tick');
         }
 
         function togglePause() {
@@ -1481,31 +1431,26 @@
             transitionTo('view-results');
         }
 
-        // --- VOTING LOGIC ---
+        // --- VOTING ---
         function initVotingPhase() {
+            state.gamePhase = 'VOTING';
+            if(state.isHost) saveHostGameState();
+
             $('phase-voting').style.display = 'flex';
             $('phase-post-reveal').style.display = 'none';
             $('voting-status').className = 'status-box';
-            
-            state.mySelectedSuspect = null; // Reset selection
+            state.mySelectedSuspect = null; 
 
             if(state.isOnline) {
                 $('attempts-display').style.display = 'none'; 
                 $('voting-status').innerText = "تکایە هەمووان دەنگ بدەن";
-                $('btn-confirm-vote').style.display = 'flex'; // Changed to flex for alignment
+                $('btn-confirm-vote').style.display = 'flex'; 
                 $('btn-confirm-vote').disabled = true;
                 $('btn-confirm-vote').innerText = "ناردنی دەنگ";
                 $('btn-reveal-all').style.display = 'none';
                 $('client-reveal-msg').style.display = 'none';
-
-                // SHOW SKIP BUTTON FOR HOST
-                if(state.isHost) {
-                    $('btn-force-end').style.display = 'flex';
-                } else {
-                    $('btn-force-end').style.display = 'none';
-                }
+                if(state.isHost) $('btn-force-end').style.display = 'flex';
             } else {
-                // Local Mode
                 state.guessesLeft = state.maxGuesses;
                 $('attempts-display').style.display = 'flex';
                 $('attempts-count').innerText = state.guessesLeft;
@@ -1520,7 +1465,6 @@
             const grid = $('suspects-grid');
             grid.innerHTML = '';
             
-            // FIX: Iterate over state.players instead of state.assignments for online clients
             state.players.forEach(playerName => {
                 const btn = document.createElement('div');
                 btn.className = 'suspect-card';
@@ -1530,7 +1474,6 @@
                 if(state.isOnline) {
                     btn.onclick = () => selectSuspectOnline(playerName, btn);
                 } else {
-                    // For local, find object immediately
                     const localPlayerObj = state.assignments.find(p => p.name === playerName);
                     btn.onclick = () => checkSuspectLocal(localPlayerObj, btn);
                 }
@@ -1538,117 +1481,74 @@
             });
         }
 
-        // Online: Step 1 - Select User
         function selectSuspectOnline(suspectName, btnElement) {
-            // Remove selection from others
             document.querySelectorAll('.suspect-card').forEach(el => el.classList.remove('selected-vote'));
-            
-            // Add to this
             btnElement.classList.add('selected-vote');
             state.mySelectedSuspect = suspectName;
             
-            // Enable button
             const btn = $('btn-confirm-vote');
             btn.disabled = false;
-            btn.classList.add('pulse'); // Animation hint
+            btn.classList.add('pulse'); 
             playSfx('click');
         }
 
-        // Online: Step 2 - Confirm Vote
         function confirmVote() {
             if(!state.mySelectedSuspect) return;
             
-            // UI Feedback
             $('btn-confirm-vote').innerText = "چاوەڕوانی ئەوانیت...";
             $('btn-confirm-vote').disabled = true;
-            document.querySelectorAll('.suspect-card').forEach(el => el.style.pointerEvents = 'none'); // Lock grid
+            document.querySelectorAll('.suspect-card').forEach(el => el.style.pointerEvents = 'none'); 
 
             const myVoteData = { type: 'SUBMIT_VOTE', suspect: state.mySelectedSuspect, voter: state.myName };
             
             if(state.isHost) {
-                // I am host, process directly
                 if(!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[state.myName] = state.mySelectedSuspect;
+                saveHostGameState();
                 checkVoteCompletion();
             } else {
                 myConn.send(myVoteData);
             }
         }
         
-        // Host: Check if everyone voted
         function checkVoteCompletion() {
             const voteCount = Object.keys(state.onlineVotes).length;
             const totalPlayers = state.players.length;
-            
-            // Broadcast progress to everyone
             broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
             $('voting-status').innerText = `دەنگدان... (${voteCount} / ${totalPlayers})`;
-
-            if(voteCount >= totalPlayers) {
-                setTimeout(processVotingResult, 1000);
-            }
+            if(voteCount >= totalPlayers) setTimeout(processVotingResult, 1000);
         }
         
-        // New: Host Skip Voting
         function hostSkipVoting() {
             if(!state.isOnline || !state.isHost) return;
-            
-            // Reveal everything immediately. 
-            const resultData = { 
-                type: 'VOTE_RESULT', 
-                victim: null, 
-                isSpy: false, 
-                winner: 'neutral', 
-                assignments: state.assignments // CRITICAL: Send roles to clients
-            };
-            
+            const resultData = { type: 'VOTE_RESULT', victim: null, isSpy: false, winner: 'neutral', assignments: state.assignments };
             broadcast(resultData);
             revealEverything('neutral', state.assignments);
         }
 
         function processVotingResult() {
-            // Calculate votes
             const counts = {};
-            Object.values(state.onlineVotes).forEach(suspect => {
-                counts[suspect] = (counts[suspect] || 0) + 1;
-            });
+            Object.values(state.onlineVotes).forEach(suspect => { counts[suspect] = (counts[suspect] || 0) + 1; });
             
-            // Find victim (Simple logic: highest vote)
-            let victim = null;
-            let maxVotes = -1;
-            
+            let victim = null; let maxVotes = -1;
             for(const [suspect, count] of Object.entries(counts)) {
-                if(count > maxVotes) {
-                    maxVotes = count;
-                    victim = suspect;
-                }
+                if(count > maxVotes) { maxVotes = count; victim = suspect; }
             }
             
-            // Check if victim is Spy
             const victimObj = state.assignments.find(p => p.name === victim);
-            let winner = 'spies'; // Default spies win
+            let winner = 'spies'; 
             let isSpy = false;
 
             if(victimObj && victimObj.role === 'spy') {
                 isSpy = true;
-                // If single spy game, Citizens win.
                 winner = 'citizens';
             }
             
-            // Broadcast result
-            const resultData = { 
-                type: 'VOTE_RESULT', 
-                victim: victim, 
-                isSpy: isSpy, 
-                winner: winner, 
-                assignments: state.assignments // Send roles to clients
-            };
-            
-            revealEverything(winner, state.assignments); // For Host
-            broadcast(resultData); // For Clients
+            const resultData = { type: 'VOTE_RESULT', victim: victim, isSpy: isSpy, winner: winner, assignments: state.assignments };
+            revealEverything(winner, state.assignments); 
+            broadcast(resultData); 
         }
 
-        // Local Mode Logic
         function checkSuspectLocal(player, btnElement) {
             const statusBox = $('voting-status');
             if(btnElement.classList.contains('caught') || btnElement.classList.contains('eliminated')) return;
@@ -1672,20 +1572,11 @@
                 statusBox.innerText = `${player.name} بێتاوانە! سیخوڕ نییە.`;
             }
 
-            if (state.guessesLeft <= 0 && state.activeSpies > 0) {
-                 setTimeout(() => revealEverything('spies'), 1000);
-            }
+            if (state.guessesLeft <= 0 && state.activeSpies > 0) setTimeout(() => revealEverything('spies'), 1000);
         }
 
         function revealEverything(winner, assignmentsList = null) {
-            // Use the passed list (from Host) or local list
             const currentAssignments = assignmentsList || state.assignments;
-            
-            if(!currentAssignments || currentAssignments.length === 0) {
-                console.error("No assignments available");
-                return;
-            }
-
             const winDisplay = $('winner-display');
             winDisplay.innerHTML = '';
             if (winner === 'citizens') {
@@ -1711,20 +1602,8 @@
             $('phase-post-reveal').style.display = 'flex';
             $('phase-post-reveal').classList.add('active');
         }
-
-        function goToSetup() { 
-            state.timerRunning = false; 
-            clearInterval(state.timerInt); 
-            // If Online, Host sends everyone back to setup/lobby
-            // For now, simple reload/reset
-            if(state.isOnline) {
-                location.reload(); 
-            } else {
-                transitionTo('view-setup'); 
-            }
-        }
         
-        // --- BUTTON TOGGLES ---
+        // --- UTILS ---
         function toggleSound() { 
             state.isSoundOn = !state.isSoundOn; 
             $('btn-sound').style.opacity = state.isSoundOn?1:0.5; 
@@ -1740,9 +1619,7 @@
         
         function toggleHelp() { const m=$('help-modal'); if(m.style.display==='flex'){m.classList.remove('open');setTimeout(()=>m.style.display='none',300)}else{m.style.display='flex';requestAnimationFrame(()=>m.classList.add('open'));} }
 
-        // --- AUDIO & HAPTIC ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
         function createNoiseBuffer() {
             const bufferSize = audioCtx.sampleRate * 2; 
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -1751,7 +1628,6 @@
             return buffer;
         }
         const noiseBuffer = createNoiseBuffer();
-
         function playTone(freq, type, duration, vol=0.1) {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -1764,12 +1640,10 @@
             osc.start();
             osc.stop(audioCtx.currentTime + duration);
         }
-
         function playSfx(type) {
             if(!state.isSoundOn) return;
             if(audioCtx.state === 'suspended') audioCtx.resume();
             const now = audioCtx.currentTime;
-
             if(type === 'click') { playTone(800, 'sine', 0.1, 0.05); }
             else if(type === 'pop') {
                 const osc = audioCtx.createOscillator();
@@ -1805,11 +1679,7 @@
                 osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(); osc.stop(now + 0.05);
             }
-            else if(type === 'victory') {
-                [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
-                    setTimeout(() => playTone(f, 'triangle', 0.6, 0.05), i * 80);
-                });
-            }
+            else if(type === 'victory') { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => { setTimeout(() => playTone(f, 'triangle', 0.6, 0.05), i * 80); }); }
             else if(type === 'alarm') {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -1825,17 +1695,11 @@
                 osc.stop(now + 0.6);
             }
         }
+        function triggerVibrate(pattern) { if (state.isHapticsOn && navigator.vibrate) navigator.vibrate(pattern); }
+        
+        const pC=$('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
 
-        function triggerVibrate(pattern) {
-            if (state.isHapticsOn && navigator.vibrate) {
-                navigator.vibrate(pattern);
-            }
-        }
-        
-        // Particles
-        const pC=document.getElementById('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
-        
-        // --- NEW: SESSION MANAGEMENT (Fix for Refresh Issue) ---
+        // --- SESSION AND STATE PERSISTENCE ---
 
         function saveSession(isHost, name, code) {
             sessionStorage.setItem('spy_is_host', isHost);
@@ -1843,10 +1707,66 @@
             sessionStorage.setItem('spy_room_code', code);
         }
 
+        // NEW: HOST STATE SAVING
+        function saveHostGameState() {
+            if(!state.isHost) return;
+            const gameState = {
+                players: state.players,
+                phase: state.gamePhase,
+                currentWord: state.currentWord,
+                assignments: state.assignments,
+                gameTime: state.gameTime,
+                numSpies: state.numSpies,
+                maxGuesses: state.maxGuesses,
+                timeLeft: state.timeLeft,
+                isRoomLocked: state.isRoomLocked,
+                flippedCount: state.flippedCount,
+                onlineVotes: state.onlineVotes
+            };
+            sessionStorage.setItem('spy_host_state', JSON.stringify(gameState));
+        }
+
+        function restoreHostGameState() {
+            const saved = sessionStorage.getItem('spy_host_state');
+            if(saved) {
+                const d = JSON.parse(saved);
+                state.players = d.players || [];
+                state.gamePhase = d.phase || 'LOBBY';
+                state.currentWord = d.currentWord;
+                state.assignments = d.assignments || [];
+                state.gameTime = d.gameTime;
+                state.numSpies = d.numSpies;
+                state.maxGuesses = d.maxGuesses;
+                state.timeLeft = d.timeLeft;
+                state.isRoomLocked = d.isRoomLocked || false;
+                state.flippedCount = d.flippedCount || 0;
+                state.onlineVotes = d.onlineVotes || {};
+                
+                // RESTORE UI BASED ON PHASE
+                if(state.gamePhase === 'CARDS') {
+                    $('current-player-name').innerText = state.myName;
+                    state.myRole = state.assignments.find(a => a.name === state.myName);
+                    transitionTo('view-cards');
+                    updateOnlineCardView();
+                } else if(state.gamePhase === 'TIMER') {
+                    transitionTo('view-timer');
+                    startTimer(state.timeLeft);
+                } else if(state.gamePhase === 'VOTING') {
+                    initVotingPhase();
+                    transitionTo('view-results');
+                    checkVoteCompletion();
+                } else if(state.gamePhase === 'SETUP') {
+                    transitionTo('view-setup');
+                    renderTags();
+                }
+            }
+        }
+
         function clearSession() {
             sessionStorage.removeItem('spy_is_host');
             sessionStorage.removeItem('spy_name');
             sessionStorage.removeItem('spy_room_code');
+            sessionStorage.removeItem('spy_host_state');
         }
 
         function checkRestoreSession() {
@@ -1855,27 +1775,17 @@
             const isHost = sessionStorage.getItem('spy_is_host') === 'true';
 
             if (code && name) {
-                // Restore Inputs
                 $('my-name-input').value = name;
                 $('room-code-input').value = code;
-
-                console.log("Restoring session...", {isHost, name, code});
-
-                if (isHost) {
-                    createOnlineRoom(true); 
-                } else {
-                    joinOnlineRoom(true);
-                }
+                if (isHost) createOnlineRoom(true); 
+                else joinOnlineRoom(true);
             }
         }
 
-        // Run this immediately on load
         window.addEventListener('load', checkRestoreSession);
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js')
-            .then(() => console.log('Service Worker registered'))
-            .catch(err => console.log('Service Worker registration failed:', err));
+            navigator.serviceWorker.register('service-worker.js').catch(console.error);
         }
     </script>
 </body>
