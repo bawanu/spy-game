@@ -799,11 +799,11 @@
                 }, 600);
             }
         }
-
+        
+        // Who make the Firt question (fixed)
         function determineStarter() {
-            const citizens = state.assignments.filter(p => p.role === 'citizen');
-            const pool = citizens.length > 0 ? citizens : state.assignments;
-            const randomStarter = pool[Math.floor(Math.random() * pool.length)];
+            const pool = state.assignments;
+            const randomStarter =  pool[Math.floor(Math.random() * pool.length)];
             $('starter-name-display').innerText = randomStarter.name;
             transitionTo('view-starter');
             playSfx('victory');
