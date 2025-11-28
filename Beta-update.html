@@ -290,7 +290,7 @@
         .suspect-card.eliminated { opacity: 0.3; pointer-events: none; filter: grayscale(1); transform: scale(0.9); }
         .suspect-card.caught { background: var(--accent); border-color: var(--accent); pointer-events: none; }
         
-        .voter-badge { position: absolute; bottom: 5px; right: 5px; background: var(--primary); width: 20px; height: 20px; border-radius: 50%; font-size: 0.6rem; display: grid; place-items: center; }
+        .voter-badge { position: absolute; bottom: 5px; right: 5px; background: var(--primary); width: 24px; height: 24px; border-radius: 50%; font-size: 0.7rem; display: grid; place-items: center; border: 1px solid white; z-index: 10;}
 
         .winner-header { text-align: center; margin-top: 20px; }
         .winner-header i { font-size: 3rem; margin-bottom: 10px; }
@@ -579,7 +579,7 @@
                         <div style="font-size: 0.9rem; color: var(--accent); font-weight: bold;">سیخوڕەکان:</div>
                         <div id="spies-list"></div>
                     </div>
-                    <button class="primary-btn" onclick="goToSetup()"><span>یاری نوێ</span> <i class="fas fa-redo"></i></button>
+                    <button class="primary-btn" onclick="resetGameToLobby()"><span>یاری نوێ (هەمان گروپ)</span> <i class="fas fa-redo"></i></button>
                 </div>
             </div>
         </div>
@@ -741,6 +741,11 @@
         }
 
         function exitToMainMenu() {
+            // STOP SERVER SIGNAL if Host
+            if(state.isOnline && state.isHost) {
+                broadcast({ type: 'ROOM_CLOSED' });
+            }
+
             // Reset essential state
             state.players = [];
             state.isOnline = false;
@@ -881,8 +886,10 @@
             }
             else if(data.type === 'VOTE') {
                 // data.suspect, data.voter
+                // Broadcast this vote to everyone so badges show up
                 broadcast({ type: 'VOTE_REGISTERED', suspect: data.suspect, voter: data.voter });
-                // Check if enough votes? (Simplified: Just visual for now)
+                // Also show on Host UI
+                showVoteOnUI(data.suspect, data.voter);
             }
         }
 
@@ -894,7 +901,6 @@
             }
             else if(data.type === 'SETUP_GAME') {
                 // Host moved to setup, we wait
-                // Ideally show "Host is configuring..."
             }
             else if(data.type === 'START_GAME') {
                 // data.roleObj {name, role, id}
@@ -922,6 +928,9 @@
                 state.timerRunning = data.running;
                 if(document.getElementById('view-timer').classList.contains('active') === false) {
                      transitionTo('view-timer');
+                     // Ensure button is hidden for client
+                     $('host-timer-controls').style.display = 'none';
+                     $('client-timer-msg').style.display = 'block';
                 }
                 updateTimerDisplay(data.totalTime);
             }
@@ -935,6 +944,11 @@
             else if(data.type === 'REVEAL_ALL') {
                  state.assignments = data.assignments; // Full list
                  revealEverything(data.winner);
+            }
+            else if(data.type === 'RETURN_TO_LOBBY') {
+                // Reset basic game state
+                transitionTo('view-lobby-waiting');
+                $('client-wait-msg').style.display = 'block'; // Waiting for host to setup again
             }
             else if(data.type === 'ROOM_CLOSED') {
                 showToast("سێرڤەرەکە داخرا!");
@@ -968,6 +982,24 @@
         
         function backToLobby() {
             transitionTo('view-lobby-waiting');
+        }
+
+        function resetGameToLobby() {
+            if(state.isOnline) {
+                if(state.isHost) {
+                    // Send everyone back to lobby
+                    broadcast({ type: 'RETURN_TO_LOBBY' });
+                    transitionTo('view-lobby-waiting');
+                    // Reset game specific vars but keep connections
+                    state.flippedCount = 0;
+                } else {
+                    // Client clicked? (Shouldn't happen as button hidden, but safe fallback)
+                    showToast("تەنها سێرڤەر دەتوانێت یاری نوێ بکات");
+                }
+            } else {
+                // Local Mode
+                transitionTo('view-setup');
+            }
         }
 
         // --- SETUP SCREEN LOGIC ---
@@ -1240,7 +1272,7 @@
             state.timerRunning = true;
             $('pause-icon').className = "fas fa-pause";
             
-            // UI Tweaks for Client
+            // UI Tweaks for Client - HIDE BUTTONS
             if(state.isOnline && !state.isHost) {
                 $('host-timer-controls').style.display = 'none';
                 $('client-timer-msg').style.display = 'block';
@@ -1333,24 +1365,25 @@
         }
 
         function checkSuspect(player, btnElement) {
-            // In Online, clicking sends a "VOTE" signal
-            // In Local, it reveals immediately
-            
+            // ONLINE VOTING
             if(state.isOnline) {
-                // Just register vote visually or send to host
+                // Anyone can vote now
                  const myVoteData = { type: 'VOTE', suspect: player.name, voter: state.myName };
+                 
+                 // Show my own vote instantly
+                 showVoteOnUI(player.name, state.myName);
+                 
                  if(state.isHost) {
-                     // I am host, process directly
+                     // I am host, process directly and tell everyone
                      broadcast({ type: 'VOTE_REGISTERED', suspect: player.name, voter: state.myName });
-                     showVoteOnUI(player.name, state.myName);
                  } else {
+                     // Tell host I voted
                      myConn.send(myVoteData);
                  }
-                 // Disable further clicking for this user? Maybe not
-                 return; 
+                 return; // In online, clicking just registers vote, Host decides when to reveal manually
             }
 
-            // LOCAL LOGIC
+            // LOCAL LOGIC (Pass & Play)
             const statusBox = $('voting-status');
             if(btnElement.classList.contains('caught') || btnElement.classList.contains('eliminated')) return;
 
@@ -1381,6 +1414,7 @@
         function showVoteOnUI(suspectName, voterName) {
             const card = document.getElementById(`suspect-${suspectName}`);
             if(card) {
+                // Check if this user already voted (remove old badge? Optional, but keeping simple for now)
                 const badge = document.createElement('div');
                 badge.className = 'voter-badge';
                 // Take first 2 chars of voter name
@@ -1544,7 +1578,6 @@
         // Particles
         const pC=document.getElementById('particles'); for(let i=0;i<20;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+10)+'s';pC.appendChild(p);}
         
-        // Existing Service Worker logic kept as requested
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js')
             .then(() => console.log('Service Worker registered'))
