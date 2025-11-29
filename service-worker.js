@@ -42,6 +42,7 @@ self.addEventListener('activate', event => {
           if (name !== CACHE_NAME) {
             console.log('[SW] Removing old cache:', name);
             return caches.delete(name);
+            console.log('Old cache deleted');
           }
         })
       )
