@@ -60,14 +60,16 @@
 
 **Bawan Nasih**
 
-<div style="display: flex; gap: 30px;">
-<a href="https://instagram.com/baxnasi7">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/120px-Instagram_logo_2016.svg.png" width="30"/>
-</a>
-<a href="https://facebook.com/bawannasih">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" alt="Facebook" width="30"/>
-</a>
-<a href="https://t.me/paperui">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Telegram" width="30"/>
-</a>
+<div style="display: flex;">
+  <a href="https://instagram.com/baxnasi7" style="margin-right: 10px;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/120px-Instagram_logo_2016.svg.png" width="30"/>
+  </a>
+
+  <a href="https://facebook.com/bawannasih" style="margin-right: 10px;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" width="30"/>
+  </a>
+
+  <a href="https://t.me/paperui">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" width="30"/>
+  </a>
 </div>
