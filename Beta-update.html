@@ -998,7 +998,9 @@ function handleHostData(data, conn) {
                 state.players.push(finalName);
         }
         
-        saveHostGameState(); 
+        saveHostGameState();
+        
+        renderLobbyPlayers();
 
         broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
 
