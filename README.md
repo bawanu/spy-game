@@ -1,3 +1,5 @@
+<div dir="rtl">
+
 # 🕵️‍♂️ یاری سیخوڕەکە - Spy Game (Online & Local)
 
 ئەمە یاری "سیخوڕەکە" (Spyfall)ـە. پڕۆژەکە بە تەواوی بە زمانی **کوردی** نووسراوەتەوە و دیزاینێکی مۆدێرنی "Glassmorphism"ـی بۆ کراوە.
@@ -45,23 +47,22 @@
 
 ## 🛠 چۆنیەتی دابەزاندن (Installation)
 
-1.  لینکەکە بکەوە: [SPY-GAME-LINK](bawanu.github.io/spy-game/)
-<div dir="rtl">
+1.  لینکەکە بکەوە: [SPY-GAME-LINK](https://bawanu.github.io/spy-game/)
+2.  **Android:** لە Chrome داگرە لەسەر `Add to Home Screen`.
+3.  **iOS:** لە Safari داگرە لەسەر `Share` پاشان `Add to Home Screen`.
 
-2. **Android:** لە Chrome داگرە لەسەر `Add to Home Screen`.
-3. **ios:** لە Safari داگرە لەسەر `Share` پاشان `Add to Home Screen`.
+## 💻 تەکنەلۆژیاکان
 
-* **HTML5, CSS3, JavaScript (ES6)**
-* **PeerJS:** بۆ پەیوەندی P2P و یاریکردنی ئۆنلاین.
-* **Web Audio API:** بۆ دەنگەکان.
-* **PWA:** Service Worker & Manifest.
-
-</div>
+*   **HTML5, CSS3, JavaScript (ES6)**
+*   **PeerJS:** بۆ پەیوەندی P2P و یاریکردنی ئۆنلاین.
+*   **Web Audio API:** بۆ دەنگەکان.
+*   **PWA:** Service Worker & Manifest.
 
 ## 👨‍💻 گەشەپێدەر (Developer)
 
 **Bawan Nasih**
 
+<div dir="ltr">
 <a href="https://instagram.com/baxnasi7">
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/120px-Instagram_logo_2016.svg.png" width="30">
 </a>
@@ -73,3 +74,6 @@
 <a href="https://t.me/paperui">
   <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" width="30">
 </a>
+</div>
+
+</div>
