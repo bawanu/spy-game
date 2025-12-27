@@ -45,7 +45,8 @@
 
 ## 🛠 چۆنیەتی دابەزاندن (Installation)
 
-1.  لینکەکە بکەوە: `[[SPY-GAME](https://bawanu.github.io/spy-game/)]`
+1.  لینکەکە بکەوە: [SPY-GAME-LINK](bawanu.github.io/spy-game/)
+
 2.  **Android:** لە Chrome داگرە لەسەر `Add to Home Screen`.
 3.  **iOS:** لە Safari داگرە لەسەر `Share` پاشان `Add to Home Screen`.
 
