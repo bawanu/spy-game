@@ -4,10 +4,10 @@ const URLS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
-  './favicon.ico',
-  './apple-touch-icon.png',
-  './icon-192.png',
-  './icon-512.png',
+  './icons/favicon.ico',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
 
   // External CDN Resources
   'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap',
