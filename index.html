@@ -1935,6 +1935,17 @@ $('player-input').addEventListener('keydown', function(e) {
 });
 
 window.addEventListener('load', checkRestoreSession);
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+            .then(reg => console.log('SW Registered!', reg.scope))
+            .catch(err => console.log('SW Failed:', err));
+    });
+}
+
+
 </script>
+
 </body>
 </html>
