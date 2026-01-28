@@ -1097,22 +1097,27 @@ function connectToHost(code, name, isRestore) {
 }
 
 // --- HOST DATA HANDLER ---
+// --- HOST DATA HANDLER ---
 function handleHostData(data, conn) {
-    if(data.type === 'PONG') {
-        if(conn.playerName) {
+    // 1. Handle Heartbeat (Update last seen time)
+    if (data.type === 'PONG') {
+        if (conn.playerName) {
             lastPong[conn.playerName] = Date.now();
-            // If they were marked offline, mark them online immediately
-            if(state.playerStatus[conn.playerName] === 'offline') {
+            if (state.playerStatus[conn.playerName] === 'offline') {
                 state.playerStatus[conn.playerName] = 'online';
                 renderLobbyPlayers();
                 broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
             }
         }
-        return;
+        return; 
     }
     
-    if(data.type === 'JOIN') {
-        
+    // Update last seen for ANY data received from this connection
+    if (conn.playerName) {
+        lastPong[conn.playerName] = Date.now();
+    }
+
+    if (data.type === 'JOIN') {
         let finalName = data.name;
         let counter = 1;
         
@@ -1124,8 +1129,7 @@ function handleHostData(data, conn) {
             }
         }
 
-        // Notify client if name changed
-        if(finalName !== data.name) {
+        if (finalName !== data.name) {
             conn.send({ type: 'NAME_CHANGED', newName: finalName });
         }
 
@@ -1135,22 +1139,20 @@ function handleHostData(data, conn) {
         const isKnown = state.players.includes(finalName);
         
         if (state.isRoomLocked && !isKnown) {
-                conn.send({ type: 'ROOM_LOCKED_ERROR' });
-                setTimeout(() => conn.close(), 500);
-                return;
+            conn.send({ type: 'ROOM_LOCKED_ERROR' });
+            setTimeout(() => conn.close(), 500);
+            return;
         }
 
         if (!isKnown) {
-                state.players.push(finalName);
+            state.players.push(finalName);
         }
         
         saveHostGameState();
-        
         renderLobbyPlayers();
-
         broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
 
-        // Restore Game State
+        // Restore Game State for rejoining player
         if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
             const playerObj = state.assignments.find(a => a.name === finalName);
             if(playerObj) {
@@ -1168,43 +1170,35 @@ function handleHostData(data, conn) {
                     assignments: state.assignments, 
                     votes: state.onlineVotes
                 });
-            } else {
-                conn.send({ type: 'GAME_IN_PROGRESS' }); 
             }
         }
-    }
-    lastPong[finalName] = Date.now();
-    else if(data.type === 'FLIPPED_BACK') {
+    } 
+    else if (data.type === 'FLIPPED_BACK') {
         state.flippedCount++;
-        if(state.flippedCount >= state.players.length) {
+        if (state.flippedCount >= state.players.length) {
             determineStarter(); 
             const starter = $('starter-name-display').innerText;
             broadcast({ type: 'SHOW_STARTER', starterName: starter });
         }
     }
-    // Inside handleHostData function...
-    else if(data.type === 'LEAVE_GAME') {
-        // Mark player as offline immediately
-        if(conn.playerName) {
+    else if (data.type === 'LEAVE_GAME') {
+        if (conn.playerName) {
             state.playerStatus[conn.playerName] = 'offline';
             saveHostGameState();
-            // Force re-render of lobby
             renderLobbyPlayers();
-            // Tell everyone else this person left
             broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
         }
-        conn.close(); // Close connection
+        conn.close();
     }
-// ... rest of the function
-    else if(data.type === 'SUBMIT_VOTE') {
-        if(!state.onlineVotes) state.onlineVotes = {};
+    else if (data.type === 'SUBMIT_VOTE') {
+        if (!state.onlineVotes) state.onlineVotes = {};
         state.onlineVotes[data.voter] = data.suspect;
         saveHostGameState(); 
         
         const voteCount = Object.keys(state.onlineVotes).length;
         const totalPlayers = state.players.length;
         broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
-        if(voteCount >= totalPlayers) {
+        if (voteCount >= totalPlayers) {
             processVotingResult();
         }
     }
