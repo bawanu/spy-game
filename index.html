@@ -543,13 +543,21 @@
     </div>
 
     <!-- VIEW 3: STARTER INDICATOR -->
-    <div id="view-starter" class="view" style="justify-content: center;">
-         <div class="starter-box">
-             <p style="color: var(--text-muted); margin-bottom: 15px;">پسیاری یەکەم دەکات:</p>
-             <div class="starter-avatar"><i class="fas fa-crown"></i></div>
-             <h2 id="starter-name-display" style="font-size: 2rem; color: #fff; margin: 0;">...</h2>
-             <br>
-             <button class="primary-btn" style="padding: 12px 30px;" onclick="startTimerView()"><span>باشە</span></button>
+    <div id="view-starter" class="view">
+         <!-- NEW: Added Top Bar with Exit Button -->
+         <div class="top-bar">
+             <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+         </div>
+         
+         <!-- Content centered vertically -->
+         <div class="scroll-content" style="justify-content: center;">
+             <div class="starter-box">
+                 <p style="color: var(--text-muted); margin-bottom: 15px;">پسیاری یەکەم دەکات:</p>
+                 <div class="starter-avatar"><i class="fas fa-crown"></i></div>
+                 <h2 id="starter-name-display" style="font-size: 2rem; color: #fff; margin: 0;">...</h2>
+                 <br>
+                 <button class="primary-btn" style="padding: 12px 30px;" onclick="startTimerView()"><span>باشە</span></button>
+             </div>
          </div>
     </div>
 
@@ -780,18 +788,32 @@ function startLocalMode() {
 }
 
 // FIX: Host exit delay to ensure close message sends
+// --- FIND THE OLD exitToMainMenu FUNCTION AND REPLACE IT WITH THIS ---
+    
 function exitToMainMenu() {
+    // 1. Define the confirmation message
+    let msg = "دڵنیای دەتەوێت بچیتە دەرەوە؟"; // "Are you sure you want to leave?"
+    
+    if (state.isOnline && state.isHost) {
+        msg = "تۆ سێرڤەریت. ئەگەر بچیتە دەرەوە ژوورەکە دادەخرێت بۆ هەمووان. دڵنیای؟"; // "You are Host. This will close the room for everyone. Sure?"
+    }
+
+    // 2. Show Confirmation Dialog (Prevents accidental clicks)
+    if (!confirm(msg)) return;
+
+    // 3. Handle Host Logic (Destroy Room)
     if(state.isOnline && state.isHost) {
         broadcast({ type: 'ROOM_CLOSED' });
         // Wait 1 second before destroying to ensure message flies out
         setTimeout(() => {
             performExitCleanup();
         }, 1000);
-    } else {
+    } 
+    // 4. Handle Client Logic (Leave Room)
+    else {
         performExitCleanup();
     }
 }
-
 function performExitCleanup() {
     if(peer) { 
         peer.destroy(); 
