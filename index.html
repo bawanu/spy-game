@@ -405,6 +405,9 @@
     <div id="view-lobby-waiting" class="view">
          <div class="top-bar">
              <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+             <div class="icon-btn" onclick="universalLeave()" style="background: rgba(244, 63, 94, 0.2); border-color: var(--accent);">
+                 <i class="fas fa-sign-out-alt" style="color: var(--accent);"></i>
+             </div
          </div>
          <div class="scroll-content">
              <h2>ژووری چاوەڕوانی</h2>
@@ -506,7 +509,9 @@
     <div id="view-cards" class="view">
         <!-- Add Exit Button Here -->
         <div class="top-bar">
-             <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+             <div class="icon-btn" onclick="universalLeave()" style="background: rgba(244, 63, 94, 0.2); border-color: var(--accent);">
+                 <i class="fas fa-sign-out-alt" style="color: var(--accent);"></i>
+             </div>
         </div>
         
         <div class="top-bar" style="justify-content: center; margin-top:-50px;">
@@ -556,7 +561,9 @@
     <!-- VIEW 4: TIMER -->
     <div id="view-timer" class="view">
          <div class="top-bar">
-             <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+             <div class="icon-btn" onclick="universalLeave()" style="background: rgba(244, 63, 94, 0.2); border-color: var(--accent);">
+                 <i class="fas fa-sign-out-alt" style="color: var(--accent);"></i>
+             </div>
              <h2 style="margin:0; flex:1; text-align:center; padding-left:40px;">کات ماوە</h2>
          </div>
          <div class="scroll-content" style="justify-content: center;">
@@ -583,7 +590,9 @@
     <!-- VIEW 5: RESULTS & VOTING -->
     <div id="view-results" class="view">
          <div class="top-bar">
-             <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
+             <div class="icon-btn" onclick="universalLeave()" style="background: rgba(244, 63, 94, 0.2); border-color: var(--accent);">
+                 <i class="fas fa-sign-out-alt" style="color: var(--accent);"></i>
+             </div>
          </div>
         <div class="scroll-content" style="align-items: stretch; justify-content: start;">
             <!-- Voting Phase -->
@@ -1011,6 +1020,7 @@ function connectToHost(code, name, isRestore) {
 
 // --- HOST DATA HANDLER ---
 function handleHostData(data, conn) {
+    
     if(data.type === 'JOIN') {
         
         let finalName = data.name;
@@ -1081,6 +1091,20 @@ function handleHostData(data, conn) {
             broadcast({ type: 'SHOW_STARTER', starterName: starter });
         }
     }
+    // Inside handleHostData function...
+    else if(data.type === 'LEAVE_GAME') {
+        // Mark player as offline immediately
+        if(conn.playerName) {
+            state.playerStatus[conn.playerName] = 'offline';
+            saveHostGameState();
+            // Force re-render of lobby
+            renderLobbyPlayers();
+            // Tell everyone else this person left
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+        }
+        conn.close(); // Close connection
+    }
+// ... rest of the function
     else if(data.type === 'SUBMIT_VOTE') {
         if(!state.onlineVotes) state.onlineVotes = {};
         state.onlineVotes[data.voter] = data.suspect;
@@ -1973,6 +1997,46 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// --- FAST DISCONNECT HANDLING ---
+window.addEventListener('beforeunload', () => {
+    if (state.isOnline) {
+
+        if (peer) {
+            if (!state.isHost && myConn) {
+                myConn.send({ type: 'LEAVE_GAME' }); // Tell host we are leaving immediately
+            }
+            peer.destroy();
+        }
+    }
+});
+
+function universalLeave() {
+    if (confirm("دڵنیای دەوێت لە ژوورەکە بچیتە دەرەوە؟")) {
+        // 1. Clear session to prevent auto-rejoin
+        clearSession(); 
+        
+        // 2. Notify others
+        if (state.isOnline) {
+            if (state.isHost) {
+                // If host leaves, close the room for everyone
+                broadcast({ type: 'ROOM_CLOSED' });
+            } else {
+                // If client leaves, tell host specifically
+                if (myConn) {
+                    myConn.send({ type: 'LEAVE_GAME' });
+                }
+            }
+        }
+
+        // 3. Clean up and Reload
+        if(peer) peer.destroy();
+        
+        // Slight delay to ensure message sends, then hard reload
+        setTimeout(() => {
+            window.location.href = window.location.pathname; // Hard reload to clear everything
+        }, 300);
+    }
+}
 
 </script>
 
