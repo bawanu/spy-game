@@ -543,19 +543,13 @@
     </div>
 
     <!-- VIEW 3: STARTER INDICATOR -->
-    <!-- VIEW 3: STARTER INDICATOR -->
-    <div id="view-starter" class="view">
-         <div class="top-bar">
-             <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
-         </div>
-         <div class="scroll-content" style="justify-content: center;">
-             <div class="starter-box">
-                 <p style="color: var(--text-muted); margin-bottom: 15px;">پسیاری یەکەم دەکات:</p>
-                 <div class="starter-avatar"><i class="fas fa-crown"></i></div>
-                 <h2 id="starter-name-display" style="font-size: 2rem; color: #fff; margin: 0;">...</h2>
-                 <br>
-                 <button class="primary-btn" style="padding: 12px 30px;" onclick="startTimerView()"><span>باشە</span></button>
-             </div>
+    <div id="view-starter" class="view" style="justify-content: center;">
+         <div class="starter-box">
+             <p style="color: var(--text-muted); margin-bottom: 15px;">پسیاری یەکەم دەکات:</p>
+             <div class="starter-avatar"><i class="fas fa-crown"></i></div>
+             <h2 id="starter-name-display" style="font-size: 2rem; color: #fff; margin: 0;">...</h2>
+             <br>
+             <button class="primary-btn" style="padding: 12px 30px;" onclick="startTimerView()"><span>باشە</span></button>
          </div>
     </div>
 
@@ -786,49 +780,18 @@ function startLocalMode() {
 }
 
 // FIX: Host exit delay to ensure close message sends
-// --- FIND THE OLD exitToMainMenu FUNCTION AND REPLACE IT WITH THIS ---
-    
 function exitToMainMenu() {
-    let msg = "دڵنیای دەتەوێت بچیتە دەرەوە؟";
-    if (state.isOnline && state.isHost) {
-        msg = "تۆ سێرڤەریت. ئەگەر بچیتە دەرەوە ژوورەکە دادەخرێت بۆ هەمووان. دڵنیای؟";
-    }
-
-    if (!confirm(msg)) return;
-
-    // 1. If Host, tell everyone to leave
-    if(state.isOnline && state.isHost) {
-        broadcast({ type: 'ROOM_CLOSED' });
-    } 
-    
-    // 2. Clear Session Data immediately
-    clearSession();
-
-    // 3. Close connections
-    if(peer) { peer.destroy(); peer = null; }
-    
-    // 4. Force Reload (Safest way to reset everything)
-    setTimeout(() => {
-        window.location.href = window.location.pathname;
-    }, 500);
-}
-
-    // 2. Show Confirmation Dialog (Prevents accidental clicks)
-    if (!confirm(msg)) return;
-
-    // 3. Handle Host Logic (Destroy Room)
     if(state.isOnline && state.isHost) {
         broadcast({ type: 'ROOM_CLOSED' });
         // Wait 1 second before destroying to ensure message flies out
         setTimeout(() => {
             performExitCleanup();
         }, 1000);
-    } 
-    // 4. Handle Client Logic (Leave Room)
-    else {
+    } else {
         performExitCleanup();
     }
 }
+
 function performExitCleanup() {
     if(peer) { 
         peer.destroy(); 
@@ -982,12 +945,11 @@ function joinOnlineRoom(isRestore = false) {
 
     if(peer) peer.destroy();
 
-    // STRICTLY GOOGLE SERVERS AS REQUESTED
     peer = new Peer(null, {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
+         config: {
+              iceServers: [
+                  { urls: 'stun:stun.l.google.com:19302' },
+                  { urls: 'stun:global.stun.twilio.com:3478' }
             ]
         }
     });
@@ -997,38 +959,24 @@ function joinOnlineRoom(isRestore = false) {
     });
 
     peer.on('error', (err) => {
-        // If error happens, clear session so they aren't stuck in a loop
-        // clearSession(); 
-        console.log("Peer Error:", err);
-        showToast("هەڵەیەک ڕوویدا لە پەیوەندی");
+        clearSession(); 
+        showToast("کۆدەکە هەڵەیە یان سێرڤەر نەماوە");
+        exitToMainMenu();
     });
 }
 
-// Global heartbeat variable
-let heartbeatInterval = null;
-
 function connectToHost(code, name, isRestore) {
     if(reconnectInterval) clearInterval(reconnectInterval);
-    if(heartbeatInterval) clearInterval(heartbeatInterval);
 
-    const conn = peer.connect("spygame-" + code, {
-        reliable: true
-    });
+    const conn = peer.connect("spygame-" + code);
     
     conn.on('open', () => {
         console.log("Connected to Host");
         myConn = conn;
-        
-        // 1. Send Join Request
+        if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+
         conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
         
-        // 2. Start Heartbeat (Ping every 2 seconds to keep connection alive)
-        heartbeatInterval = setInterval(() => {
-            if(myConn && myConn.open) {
-                myConn.send({ type: 'PING' });
-            }
-        }, 2000);
-
         if(!document.querySelector('.view.active').id.includes('view-cards') && 
            !document.querySelector('.view.active').id.includes('view-timer') &&
            !document.querySelector('.view.active').id.includes('view-results')) {
@@ -1046,77 +994,33 @@ function connectToHost(code, name, isRestore) {
     conn.on('data', (data) => handleClientData(data));
     
     conn.on('close', () => {
-        console.log("Disconnected. Attempting reconnect...");
+        console.log("Disconnected from Host. Attempting reconnect...");
         myConn = null;
-        if(heartbeatInterval) clearInterval(heartbeatInterval);
-        
-        $('client-wait-msg').innerText = "پەیوەندی پچڕا! هەوڵدەدات پەیوەست بێتەوە...";
+        $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
         showToast("پەیوەندی پچڕا! هەوڵدەدات پەیوەست بێتەوە...");
         
         // Auto Reconnect Logic
         if(!reconnectInterval) {
             reconnectInterval = setInterval(() => {
                 console.log("Reconnecting...");
-                joinOnlineRoom(true); // Call Join again to refresh Peer ID
-            }, 3000);
+                connectToHost(code, name, true);
+            }, 2000);
         }
     });
 }
 
 // --- HOST DATA HANDLER ---
 function handleHostData(data, conn) {
-    // 0. Handle Ping (Heartbeat) - Just ignore it, it keeps the line open
-    if(data.type === 'PING') {
-        return; 
-    }
-
     if(data.type === 'JOIN') {
-        let finalName = data.name;
         
-        // LOGIC CHANGE: If they say they are rejoining, and the name exists, ALLOW IT.
-        // Don't rename them to "Player_1".
-        const nameExists = state.players.includes(finalName);
-
-        if (nameExists) {
-            if (data.isRejoining) {
-                // Determine if this is actually a known player coming back
-                console.log("Player rejoining: " + finalName);
-                state.playerStatus[finalName] = 'online';
-                conn.playerName = finalName;
-                
-                // Remove old dead connection if it exists
-                hostConnections = hostConnections.filter(c => c.playerName !== finalName || c === conn);
-                
-                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
-                
-                // Immediately sync them up
-                if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
-                    const playerObj = state.assignments.find(a => a.name === finalName);
-                    if(playerObj) {
-                        conn.send({
-                            type: 'RESTORE_GAME',
-                            phase: state.gamePhase,
-                            roleObj: playerObj,
-                            word: state.currentWord,
-                            time: state.gameTime,
-                            spiesCount: state.numSpies,
-                            guesses: state.maxGuesses,
-                            timeLeft: state.timeLeft,
-                            players: state.players,
-                            statuses: state.playerStatus, 
-                            assignments: state.assignments, 
-                            votes: state.onlineVotes
-                        });
-                    }
-                }
-                return; // Stop here, don't add them as new
-            } else {
-                // Name exists but they didn't claim to be rejoining (Duplicate Name)
-                let counter = 1;
-                while(state.players.includes(finalName)) {
-                     finalName = `${data.name}_${counter}`;
-                     counter++;
-                }
+        let finalName = data.name;
+        let counter = 1;
+        
+        // Name Duplicate Check
+        if (!data.isRejoining || (data.isRejoining && !state.players.includes(data.name))) {
+            while(state.players.includes(finalName)) {
+                 finalName = `${data.name}_${counter}`;
+                 counter++;
             }
         }
 
@@ -1128,22 +1032,47 @@ function handleHostData(data, conn) {
         conn.playerName = finalName;
         state.playerStatus[finalName] = 'online'; 
 
-        // Room Lock Check
-        if (state.isRoomLocked && !nameExists) {
-            conn.send({ type: 'ROOM_LOCKED_ERROR' });
-            setTimeout(() => conn.close(), 500);
-            return;
+        const isKnown = state.players.includes(finalName);
+        
+        if (state.isRoomLocked && !isKnown) {
+                conn.send({ type: 'ROOM_LOCKED_ERROR' });
+                setTimeout(() => conn.close(), 500);
+                return;
         }
 
-        if (!nameExists) {
-            state.players.push(finalName);
+        if (!isKnown) {
+                state.players.push(finalName);
         }
         
         saveHostGameState();
+        
         renderLobbyPlayers();
+
         broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+
+        // Restore Game State
+        if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
+            const playerObj = state.assignments.find(a => a.name === finalName);
+            if(playerObj) {
+                conn.send({
+                    type: 'RESTORE_GAME',
+                    phase: state.gamePhase,
+                    roleObj: playerObj,
+                    word: state.currentWord,
+                    time: state.gameTime,
+                    spiesCount: state.numSpies,
+                    guesses: state.maxGuesses,
+                    timeLeft: state.timeLeft,
+                    players: state.players,
+                    statuses: state.playerStatus, 
+                    assignments: state.assignments, 
+                    votes: state.onlineVotes
+                });
+            } else {
+                conn.send({ type: 'GAME_IN_PROGRESS' }); 
+            }
+        }
     }
-    // ... keep the rest of your handlers (FLIPPED_BACK, SUBMIT_VOTE) exactly the same ...
     else if(data.type === 'FLIPPED_BACK') {
         state.flippedCount++;
         if(state.flippedCount >= state.players.length) {
@@ -1165,6 +1094,7 @@ function handleHostData(data, conn) {
         }
     }
 }
+
 // --- CLIENT DATA HANDLER ---
 function handleClientData(data) {
     if(data.type === 'NAME_CHANGED') {
