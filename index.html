@@ -848,7 +848,14 @@ function createOnlineRoom(isRestore = false) {
     if(peer) peer.destroy();
 
     // Initialize Peer with specific ID to allow restore
-    peer = new Peer("spygame-" + customCode);
+    peer = new Peer("spygame-" + customCode, {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
+    });
     
     peer.on('open', (id) => {
         console.log('Host ID: ' + id);
@@ -938,7 +945,15 @@ function joinOnlineRoom(isRestore = false) {
 
     if(peer) peer.destroy();
 
-    peer = new Peer(); 
+    peer = new Peer(null, {
+         config: {
+              iceServers: [
+                  { urls: 'stun:stun.l.google.com:19302' },
+                  { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
+    });
+
     peer.on('open', (id) => {
         connectToHost(code, name, isRestore);
     });
