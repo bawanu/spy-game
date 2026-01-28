@@ -404,7 +404,6 @@
     <!-- VIEW 0.7: WAITING LOBBY -->
     <div id="view-lobby-waiting" class="view">
          <div class="top-bar">
-             <div class="icon-btn" onclick="exitToMainMenu()"><i class="fas fa-home"></i></div>
              <div class="icon-btn" onclick="universalLeave()" style="background: rgba(244, 63, 94, 0.2); border-color: var(--accent);">
                  <i class="fas fa-sign-out-alt" style="color: var(--accent);"></i>
              </div>
@@ -715,6 +714,8 @@ const CATEGORIES = {
 };
 
 // --- STATE MANAGEMENT ---
+let heartbeatInterval = null;
+let lastPong = {}; // Stores the last time we heard from a player
 let state = {
     players: [], // Just names
     playerStatus: {}, // { name: 'online' | 'offline' }
@@ -734,6 +735,77 @@ let state = {
     gamePhase: 'LOBBY'
 };
 
+
+
+
+// --- HEARTBEAT & WAKE-UP LOGIC ---
+
+// 1. Host sends PING every 2 seconds
+function startHostHeartbeat() {
+    if(heartbeatInterval) clearInterval(heartbeatInterval);
+    
+    heartbeatInterval = setInterval(() => {
+        if(!state.isOnline || !state.isHost) {
+            clearInterval(heartbeatInterval);
+            return;
+        }
+
+        // Send PING to everyone
+        broadcast({ type: 'PING' });
+
+        // Check for timeouts (Players who haven't responded in 8 seconds)
+        const now = Date.now();
+        let changed = false;
+
+        state.players.forEach(p => {
+            if(p === state.myName) return; // Host is always online
+
+            const lastSeen = lastPong[p] || now; // Default to now for new players
+            const isActuallyOnline = (now - lastSeen) < 8000; // 8 seconds tolerance
+
+            if(isActuallyOnline && state.playerStatus[p] !== 'online') {
+                state.playerStatus[p] = 'online';
+                changed = true;
+            } else if(!isActuallyOnline && state.playerStatus[p] !== 'offline') {
+                state.playerStatus[p] = 'offline';
+                changed = true;
+            }
+        });
+
+        if(changed) {
+            renderLobbyPlayers();
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+        }
+    }, 2000);
+}
+
+// 2. Client Auto-Rejoin on Screen Wake
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === 'visible') {
+        // If we are supposed to be in a game but connection is dead
+        if (state.isOnline && !state.isHost) {
+            console.log("App foregrounded. Checking connection...");
+            
+            // If Peer disconnected from signaling server (common on mobile sleep)
+            if (peer && peer.disconnected) {
+                console.log("Peer disconnected. Reconnecting...");
+                peer.reconnect();
+            }
+
+            // If connection to Host is closed or null
+            if (!myConn || !myConn.open) {
+                console.log("Host connection lost. Attempting restore...");
+                const code = sessionStorage.getItem('spy_room_code');
+                const name = sessionStorage.getItem('spy_name');
+                if (code && name) {
+                     // Force a reconnect attempt
+                     joinOnlineRoom(true);
+                }
+            }
+        }
+    }
+});
+    
 // --- DOM HELPERS ---
 const $ = (id) => document.getElementById(id);
 const transitionTo = (viewId) => {
@@ -802,6 +874,10 @@ function exitToMainMenu() {
 }
 
 function performExitCleanup() {
+    if(heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+    lastPong = {};
+    
     if(peer) { 
         peer.destroy(); 
         peer = null; 
@@ -892,6 +968,7 @@ function createOnlineRoom(isRestore = false) {
         
         updateLockBtnUI();
         if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
+        startHostHeartbeat();
     });
 
     peer.on('error', (err) => {
@@ -907,6 +984,7 @@ function createOnlineRoom(isRestore = false) {
         } else {
             console.error(err);
             showToast("هەڵەی پەیوەندی");
+            
         }
     });
 
@@ -1020,6 +1098,18 @@ function connectToHost(code, name, isRestore) {
 
 // --- HOST DATA HANDLER ---
 function handleHostData(data, conn) {
+    if(data.type === 'PONG') {
+        if(conn.playerName) {
+            lastPong[conn.playerName] = Date.now();
+            // If they were marked offline, mark them online immediately
+            if(state.playerStatus[conn.playerName] === 'offline') {
+                state.playerStatus[conn.playerName] = 'online';
+                renderLobbyPlayers();
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+            }
+        }
+        return;
+    }
     
     if(data.type === 'JOIN') {
         
@@ -1083,6 +1173,7 @@ function handleHostData(data, conn) {
             }
         }
     }
+    lastPong[finalName] = Date.now();
     else if(data.type === 'FLIPPED_BACK') {
         state.flippedCount++;
         if(state.flippedCount >= state.players.length) {
@@ -1121,6 +1212,13 @@ function handleHostData(data, conn) {
 
 // --- CLIENT DATA HANDLER ---
 function handleClientData(data) {
+
+    if(data.type === 'PING') {
+        if(myConn && myConn.open) {
+            myConn.send({ type: 'PONG' });
+        }
+        return;
+    }
     if(data.type === 'NAME_CHANGED') {
         state.myName = data.newName;
         $('my-name-input').value = data.newName; 
