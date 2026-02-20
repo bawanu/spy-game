@@ -87,6 +87,18 @@
             100% { box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5); }
         }
 
+        @keyframes talking-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); border-color: var(--success); }
+            70% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); border-color: var(--success); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); border-color: var(--success); }
+        }
+
+        .talking-indicator {
+            animation: talking-pulse 1.5s infinite !important;
+            border: 2px solid var(--success) !important;
+            background: rgba(16, 185, 129, 0.15) !important;
+        }
+
         @keyframes float {
             0% { transform: translateY(100vh) scale(0); opacity: 0; }
             50% { opacity: 0.5; }
@@ -256,6 +268,7 @@
         .icon-btn:hover { box-shadow: 0 0 15px rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); transform: scale(1.05); }
         .icon-btn:active { transform: scale(0.9); background: var(--primary); }
         .icon-btn.active { background: var(--accent); border-color: var(--accent); }
+        .icon-btn.mic-on { background: var(--success); border-color: var(--success); box-shadow: 0 0 15px var(--success); }
 
         .input-box { width: 100%; max-width: 600px; position: relative; margin-bottom: 20px; display: flex; gap: 8px; }
         .main-input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 16px; padding: 12px; color: white; font-size: 1rem; text-align: right; }
@@ -269,7 +282,7 @@
 
         .tags-container { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
 
-        .tag { background: rgba(255,255,255,0.1); padding: 8px 12px 8px 16px; border-radius: 30px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
+        .tag { background: rgba(255,255,255,0.1); padding: 8px 12px 8px 16px; border-radius: 30px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; transition: all 0.2s ease; }
         .tag i { opacity: 0.5; cursor: pointer; padding: 4px; }
 
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
@@ -319,7 +332,7 @@
         .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); animation: none; }
         .primary-btn.success:hover { background: rgba(16, 185, 129, 0.4); }
 
-        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
+        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textSh Shine 3s linear infinite; }
         .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite ease-in-out; pointer-events: none; }
         .primary-btn:active { transform: scale(0.98); }
         .primary-btn:hover { box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.7); }
@@ -802,9 +815,11 @@
 
         let heartbeatInterval = null;
         let lastPong = {};
+        let audioMonitorInt = null;
         let state = {
             players: [],
             playerStatus: {},
+            talkingStatus: {},
             numSpies: 1, gameTime: 5, maxGuesses: 1, guessesLeft: 1, manualGuessSet: false,
             selectedCats: new Set([]), isSoundOn: true,
             isHapticsOn: true,
@@ -905,6 +920,7 @@
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     isMicOn = true;
                     updateMicUI(true);
+                    startAudioMonitoring(localStream);
                     if (state.isHost) {
                         hostConnections.forEach(conn => initiateCall(conn.peer));
                     } else if (myConn) {
@@ -914,15 +930,22 @@
                     showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە");
                 }
             } else {
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                    localStream = null;
-                }
-                isMicOn = false;
-                updateMicUI(false);
-                Object.values(activeCalls).forEach(call => call.close());
-                activeCalls = {};
+                stopMic();
             }
+        }
+
+        function stopMic() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (audioMonitorInt) clearInterval(audioMonitorInt);
+            isMicOn = false;
+            updateMicUI(false);
+            handleTalkingStatus(state.myName, false);
+            broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: false });
+            Object.values(activeCalls).forEach(call => call.close());
+            activeCalls = {};
         }
 
         function updateMicUI(on) {
@@ -930,8 +953,46 @@
                 icon.className = on ? "fas fa-microphone" : "fas fa-microphone-slash";
             });
             document.querySelectorAll('.mic-trigger').forEach(btn => {
-                if(on) btn.classList.add('active');
-                else btn.classList.remove('active');
+                if(on) btn.classList.add('mic-on');
+                else btn.classList.remove('mic-on');
+            });
+        }
+
+        function startAudioMonitoring(stream) {
+            try {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const source = context.createMediaStreamSource(stream);
+                const analyser = context.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                let lastStatus = false;
+                audioMonitorInt = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+                    let average = sum / dataArray.length;
+                    let isTalking = average > 20;
+                    if(isTalking !== lastStatus) {
+                        lastStatus = isTalking;
+                        handleTalkingStatus(state.myName, isTalking);
+                        broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: isTalking });
+                    }
+                }, 100);
+            } catch(e) {}
+        }
+
+        function handleTalkingStatus(name, status) {
+            state.talkingStatus[name] = status;
+            renderLobbyPlayers();
+            updateSuspectGlows();
+        }
+
+        function updateSuspectGlows() {
+            document.querySelectorAll('.suspect-card').forEach(card => {
+                const name = card.querySelector('div').innerText;
+                if(state.talkingStatus[name]) card.classList.add('talking-indicator');
+                else card.classList.remove('talking-indicator');
             });
         }
 
@@ -1071,6 +1132,7 @@
             myConn = null;
             state.players = [];
             state.playerStatus = {};
+            state.talkingStatus = {};
             state.isOnline = false;
             state.gamePhase = 'LOBBY';
             state.isRoomLocked = false;
@@ -1081,12 +1143,7 @@
             $('chat-messages').innerHTML = '';
             unreadCount = 0;
             updateChatBadge();
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            isMicOn = false;
-            updateMicUI(false);
+            stopMic();
             $('remote-audio-container').innerHTML = '';
             clearSession();
             renderTags();
@@ -1262,7 +1319,7 @@
             if (data.type === 'PONG') {
                 if (conn.playerName) {
                     lastPong[conn.playerName] = Date.now();
-                    if (state.playerStatus[conn.playerName] === 'online') {
+                    if (state.playerStatus[conn.playerName] === 'offline') {
                         state.playerStatus[conn.playerName] = 'online';
                         renderLobbyPlayers();
                         broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
@@ -1278,6 +1335,12 @@
                     if (c !== conn) c.send(data);
                 });
                 addMessageToUI(data.sender, data.text, 'received');
+            }
+            else if (data.type === 'TALKING_STATUS') {
+                handleTalkingStatus(data.sender, data.status);
+                hostConnections.forEach(c => {
+                    if (c !== conn) c.send(data);
+                });
             }
             else if (data.type === 'JOIN') {
                 let finalName = data.name;
@@ -1364,6 +1427,9 @@
             }
             if (data.type === 'CHAT') {
                 addMessageToUI(data.sender, data.text, 'received');
+            }
+            else if (data.type === 'TALKING_STATUS') {
+                handleTalkingStatus(data.sender, data.status);
             }
             else if(data.type === 'NAME_CHANGED') {
                 state.myName = data.newName;
@@ -1465,7 +1531,8 @@
             container.innerHTML = state.players.map((p, index) => {
                 const isOnline = state.playerStatus[p] === 'online';
                 const statusClass = isOnline ? 'status-online' : 'status-offline';
-                let html = `<div class="tag">
+                const talkingClass = state.talkingStatus[p] ? 'talking-indicator' : '';
+                let html = `<div class="tag ${talkingClass}">
                     <span class="status-dot ${statusClass}"></span>
                     ${p} ${p === state.myName ? '(تۆ)' : ''}`;
                 if(state.isHost && p !== state.myName) {
@@ -1856,6 +1923,7 @@
                 }
                 grid.appendChild(btn);
             });
+            updateSuspectGlows();
         }
 
         function selectSuspectOnline(suspectName, btnElement) {
