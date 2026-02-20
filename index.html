@@ -332,7 +332,7 @@
         .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); animation: none; }
         .primary-btn.success:hover { background: rgba(16, 185, 129, 0.4); }
 
-        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textSh Shine 3s linear infinite; }
+        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
         .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite ease-in-out; pointer-events: none; }
         .primary-btn:active { transform: scale(0.98); }
         .primary-btn:hover { box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.7); }
@@ -471,6 +471,7 @@
         </div>
     </div>
 
+    <!-- Container for remote audio streams -->
     <div id="remote-audio-container" style="display:none"></div>
 
     <div class="app-wrapper">
@@ -914,6 +915,11 @@
             }, 3000);
         }
 
+        /**
+         * VOICE CHAT LOGIC - REWRITTEN
+         * Mic Toggle only handles local capture and initiating outgoing calls.
+         * Peer receiver is always ready to answer.
+         */
         async function toggleMic() {
             if (!isMicOn) {
                 try {
@@ -921,13 +927,15 @@
                     isMicOn = true;
                     updateMicUI(true);
                     startAudioMonitoring(localStream);
+                    
+                    // Call everyone else to send them my audio
                     if (state.isHost) {
                         hostConnections.forEach(conn => initiateCall(conn.peer));
                     } else if (myConn) {
                         initiateCall(myConn.peer);
                     }
                 } catch (err) {
-                    showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە");
+                    showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە بۆ قسەکردن");
                 }
             } else {
                 stopMic();
@@ -944,7 +952,11 @@
             updateMicUI(false);
             handleTalkingStatus(state.myName, false);
             broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: false });
-            Object.values(activeCalls).forEach(call => call.close());
+            
+            // Close outgoing calls
+            Object.values(activeCalls).forEach(call => {
+                if (call.open) call.close();
+            });
             activeCalls = {};
         }
 
@@ -990,7 +1002,9 @@
 
         function updateSuspectGlows() {
             document.querySelectorAll('.suspect-card').forEach(card => {
-                const name = card.querySelector('div').innerText;
+                const nameNode = card.querySelector('div');
+                if(!nameNode) return;
+                const name = nameNode.innerText;
                 if(state.talkingStatus[name]) card.classList.add('talking-indicator');
                 else card.classList.remove('talking-indicator');
             });
@@ -998,23 +1012,36 @@
 
         function initiateCall(peerId) {
             if (!localStream) return;
+            // Initiate a call providing our local stream
             const call = peer.call(peerId, localStream);
-            handleIncomingCall(call);
+            if (call) handleIncomingCall(call);
         }
 
         function handleIncomingCall(call) {
             activeCalls[call.peer] = call;
+            
+            // On stream received, play it
             call.on('stream', (remoteStream) => {
                 let audio = $(`audio-${call.peer}`);
                 if (!audio) {
                     audio = document.createElement('audio');
                     audio.id = `audio-${call.peer}`;
                     audio.autoplay = true;
+                    // Important for mobile browsers: play() might need a user gesture, 
+                    // but usually works for streams if autoplay is on.
                     $('remote-audio-container').appendChild(audio);
                 }
                 audio.srcObject = remoteStream;
+                audio.play().catch(e => console.log("Auto-play blocked, waiting for gesture"));
             });
+
             call.on('close', () => {
+                const audio = $(`audio-${call.peer}`);
+                if (audio) audio.remove();
+                delete activeCalls[call.peer];
+            });
+
+            call.on('error', () => {
                 const audio = $(`audio-${call.peer}`);
                 if (audio) audio.remove();
                 delete activeCalls[call.peer];
@@ -1173,6 +1200,7 @@
             }
             saveSession(true, name, customCode);
             if(peer) peer.destroy();
+            
             peer = new Peer("spygame-" + customCode, {
                 config: {
                     iceServers: [
@@ -1181,6 +1209,7 @@
                     ]
                 }
             });
+
             peer.on('open', (id) => {
                 $('display-room-code').innerText = customCode;
                 state.playerStatus[state.myName] = 'online';
@@ -1203,10 +1232,14 @@
                 if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
                 startHostHeartbeat();
             });
+
+            // ALWAYS answer calls to receive audio, even if mic is off
             peer.on('call', (call) => {
+                // Answer with our stream if it exists, otherwise answer with nothing to just listen
                 call.answer(localStream || undefined);
                 handleIncomingCall(call);
             });
+
             peer.on('error', (err) => {
                 if(err.type === 'unavailable-id') {
                     if(isRestore) {
@@ -1219,6 +1252,7 @@
                     showToast("هەڵەی پەیوەندی");
                 }
             });
+
             peer.on('connection', (conn) => {
                 hostConnections.push(conn);
                 conn.on('data', (data) => handleHostData(data, conn));
@@ -1260,6 +1294,7 @@
             state.isOnline = true;
             state.isHost = false;
             if(peer) peer.destroy();
+            
             peer = new Peer(null, {
                  config: {
                       iceServers: [
@@ -1268,13 +1303,17 @@
                     ]
                 }
             });
+
             peer.on('open', (id) => {
                 connectToHost(code, name, isRestore);
             });
+
+            // ALWAYS answer calls to receive audio, even if mic is off
             peer.on('call', (call) => {
                 call.answer(localStream || undefined);
                 handleIncomingCall(call);
             });
+
             peer.on('error', (err) => {
                 clearSession();
                 showToast("کۆدەکە هەڵەیە یان سێرڤەر نەماوە");
@@ -1291,6 +1330,7 @@
                 document.querySelectorAll('.chat-trigger').forEach(b => b.style.display = 'grid');
                 document.querySelectorAll('.mic-trigger').forEach(b => b.style.display = 'grid');
                 conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
+                
                 if(!document.querySelector('.view.active').id.includes('view-cards') &&
                    !document.querySelector('.view.active').id.includes('view-timer') &&
                    !document.querySelector('.view.active').id.includes('view-results')) {
@@ -1302,7 +1342,9 @@
                 $('client-wait-msg').innerText = "چاوەڕێی سێرڤەر بە یاریەکە دەستپێبکات...";
                 if(isRestore) showToast("گەڕایتەوە ناو یاری");
             });
+
             conn.on('data', (data) => handleClientData(data));
+            
             conn.on('close', () => {
                 myConn = null;
                 $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
