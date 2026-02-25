@@ -864,6 +864,13 @@
                     clearInterval(heartbeatInterval);
                     return;
                 }
+                
+                // If the peer is disconnected from signaling server, try to reconnect
+                if (peer && peer.disconnected) {
+                    console.log("Peer signaling disconnected. Reconnecting...");
+                    peer.reconnect();
+                }
+
                 broadcast({ type: 'PING' });
                 const now = Date.now();
                 let changed = false;
@@ -1281,12 +1288,15 @@
             state.myName = name;
             state.isOnline = true;
             state.isHost = false;
+            
+            showToast("پەیوەندی دەبەسترێت...");
+            
             if(peer) peer.destroy();
             peer = new Peer(null, PEER_CONFIG);
             peer.on('open', (id) => {
                 setTimeout(() => {
                     connectToHost(code, name, isRestore);
-                }, 500);
+                }, 800);
             });
             peer.on('call', (call) => handleIncomingCall(call));
             peer.on('error', (err) => {
@@ -1302,7 +1312,9 @@
 
         function connectToHost(code, name, isRestore) {
             if(reconnectInterval) clearInterval(reconnectInterval);
-            const conn = peer.connect("bawan-spy-prod-" + code);
+            const conn = peer.connect("bawan-spy-prod-" + code, {
+                reliable: true
+            });
             conn.on('open', () => {
                 myConn = conn;
                 if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
