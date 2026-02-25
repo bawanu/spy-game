@@ -814,6 +814,20 @@
             "custom": { label: "تایبەت", icon: "fa-pen-fancy", words: [] }
         };
 
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' }
+                ],
+                iceCandidatePoolSize: 10
+            }
+        };
+
         let heartbeatInterval = null;
         let lastPong = {};
         let audioMonitorInt = null;
@@ -916,7 +930,6 @@
             }, 3000);
         }
 
-        // VOICE CHAT LOGIC IMPROVED
         async function toggleMic() {
             if (!isMicOn) {
                 try {
@@ -925,7 +938,6 @@
                     updateMicUI(true);
                     startAudioMonitoring(localStream);
                     
-                    // Call everyone else to broadcast my voice
                     if (state.isHost) {
                         hostConnections.forEach(conn => initiateBroadcastCall(conn.peer));
                     } else if (myConn) {
@@ -950,8 +962,6 @@
             handleTalkingStatus(state.myName, false);
             broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: false });
             
-            // Close ONLY broadcast calls I started. 
-            // This leaves calls from others open so I can still hear them.
             Object.values(myBroadcastCalls).forEach(call => {
                 if (call.open) call.close();
             });
@@ -1018,10 +1028,7 @@
 
         function handleIncomingCall(call) {
             incomingMediaCalls[call.peer] = call;
-            
-            // Listen to other peer's stream even if my mic is off
             call.answer(); 
-            
             call.on('stream', (remoteStream) => {
                 let audio = $(`audio-${call.peer}`);
                 if (!audio) {
@@ -1034,13 +1041,11 @@
                 audio.srcObject = remoteStream;
                 audio.play().catch(e => console.log("Audio play blocked until interaction"));
             });
-
             call.on('close', () => {
                 const audio = $(`audio-${call.peer}`);
                 if (audio) audio.remove();
                 delete incomingMediaCalls[call.peer];
             });
-            
             call.on('error', () => {
                 const audio = $(`audio-${call.peer}`);
                 if (audio) audio.remove();
@@ -1200,14 +1205,7 @@
             }
             saveSession(true, name, customCode);
             if(peer) peer.destroy();
-            peer = new Peer("spygame-" + customCode, {
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
-            });
+            peer = new Peer("bawan-spy-prod-" + customCode, PEER_CONFIG);
             peer.on('open', (id) => {
                 $('display-room-code').innerText = customCode;
                 state.playerStatus[state.myName] = 'online';
@@ -1230,12 +1228,7 @@
                 if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
                 startHostHeartbeat();
             });
-            
-            // Critical for receiving voice
-            peer.on('call', (call) => {
-                handleIncomingCall(call);
-            });
-
+            peer.on('call', (call) => handleIncomingCall(call));
             peer.on('error', (err) => {
                 if(err.type === 'unavailable-id') {
                     if(isRestore) {
@@ -1245,7 +1238,7 @@
                          clearSession();
                     }
                 } else {
-                    showToast("هەڵەی پەیوەندی");
+                    showToast("هەڵەی پەیوەندی: " + err.type);
                 }
             });
             peer.on('connection', (conn) => {
@@ -1289,33 +1282,27 @@
             state.isOnline = true;
             state.isHost = false;
             if(peer) peer.destroy();
-            peer = new Peer(null, {
-                 config: {
-                      iceServers: [
-                          { urls: 'stun:stun.l.google.com:19302' },
-                          { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
-            });
+            peer = new Peer(null, PEER_CONFIG);
             peer.on('open', (id) => {
-                connectToHost(code, name, isRestore);
+                setTimeout(() => {
+                    connectToHost(code, name, isRestore);
+                }, 500);
             });
-            
-            // Always listen for incoming voice
-            peer.on('call', (call) => {
-                handleIncomingCall(call);
-            });
-
+            peer.on('call', (call) => handleIncomingCall(call));
             peer.on('error', (err) => {
+                if(err.type === 'peer-unavailable') {
+                    showToast("ژوورەکە نەدۆزرایەوە (کۆدەکە هەڵەیە)");
+                } else {
+                    showToast("هەڵەیەک ڕوویدا: " + err.type);
+                }
                 clearSession();
-                showToast("کۆدەکە هەڵەیە یان سێرڤەر نەماوە");
                 exitToMainMenu();
             });
         }
 
         function connectToHost(code, name, isRestore) {
             if(reconnectInterval) clearInterval(reconnectInterval);
-            const conn = peer.connect("spygame-" + code);
+            const conn = peer.connect("bawan-spy-prod-" + code);
             conn.on('open', () => {
                 myConn = conn;
                 if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
