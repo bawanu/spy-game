@@ -82,27 +82,21 @@
         }
 
         @keyframes glow-pulse {
-            0% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 0.5; }
+            0% { box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5); }
+            50% { box-shadow: 0 10px 40px -5px rgba(99, 102, 241, 0.8); }
+            100% { box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5); }
         }
 
         @keyframes talking-pulse {
-            0% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.05); opacity: 0.2; }
-            100% { transform: scale(1); opacity: 0.8; }
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); border-color: var(--success); }
+            70% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); border-color: var(--success); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); border-color: var(--success); }
         }
 
         .talking-indicator {
-            position: relative;
+            animation: talking-pulse 1.5s infinite !important;
             border: 2px solid var(--success) !important;
             background: rgba(16, 185, 129, 0.15) !important;
-        }
-        
-        .talking-indicator::after {
-            content: ''; position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px;
-            border-radius: inherit; border: 2px solid var(--success);
-            animation: talking-pulse 1.5s infinite running; pointer-events: none;
         }
 
         @keyframes float {
@@ -893,30 +887,23 @@
                 broadcast({ type: 'PING' });
                 const now = Date.now();
                 let changed = false;
-                state.players.forEach((p, idx) => {
+                state.players.forEach(p => {
                     if(p === state.myName) return;
                     const lastSeen = lastPong[p] || now;
-                    const isActuallyOnline = (now - lastSeen) < 10000;
+                    const isActuallyOnline = (now - lastSeen) < 8000;
                     if(isActuallyOnline && state.playerStatus[p] !== 'online') {
                         state.playerStatus[p] = 'online';
                         changed = true;
                     } else if(!isActuallyOnline && state.playerStatus[p] !== 'offline') {
                         state.playerStatus[p] = 'offline';
                         changed = true;
-                        
-                        // Force garbage collection of dead data connections
-                        const ghostConnIdx = hostConnections.findIndex(c => c.playerName === p);
-                        if(ghostConnIdx !== -1) {
-                            try { hostConnections[ghostConnIdx].close(); } catch(e){}
-                            hostConnections.splice(ghostConnIdx, 1);
-                        }
                     }
                 });
                 if(changed) {
                     renderLobbyPlayers();
-                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
+                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
                 }
-            }, 3000);
+            }, 2000);
         }
 
         document.addEventListener("visibilitychange", () => {
@@ -1034,7 +1021,6 @@
                 analyser.fftSize = 256;
                 source.connect(analyser);
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                if (audioMonitorInt) clearInterval(audioMonitorInt);
                 let lastStatus = false;
                 let silenceCounter = 0;
                 audioMonitorInt = setInterval(() => {
@@ -1554,31 +1540,6 @@
                         }
                     });
                 }
-                // Garbage Collect missing media peers
-                Object.keys(incomingMediaCalls).forEach(callerId => {
-                    let stillExists = false;
-                    for(const pName in data.peerMap) {
-                        if(data.peerMap[pName] === callerId) stillExists = true;
-                    }
-                    if(!stillExists && callerId !== state.peerMap[state.myName]) {
-                        try { incomingMediaCalls[callerId].close(); } catch(e){}
-                        delete incomingMediaCalls[callerId];
-                        const audioTag = $(`audio-${callerId}`);
-                        if(audioTag) audioTag.remove();
-                    }
-                });
-
-                Object.keys(myBroadcastCalls).forEach(targetId => {
-                    let stillExists = false;
-                    for(const pName in data.peerMap) {
-                        if(data.peerMap[pName] === targetId) stillExists = true;
-                    }
-                    if(!stillExists) {
-                        try { myBroadcastCalls[targetId].close(); } catch(e){}
-                        delete myBroadcastCalls[targetId];
-                    }
-                });
-
             }
             else if(data.type === 'KICKED') {
                 showToast("تۆ لە ژوورەک دەرکرایت");
@@ -1640,8 +1601,6 @@
                 revealEverything(data.winner, data.assignments);
             }
             else if(data.type === 'RETURN_TO_LOBBY') {
-                if(state.gamePhase === 'TIMER') clearInterval(state.timerInt);
-                state.gamePhase = 'LOBBY';
                 transitionTo('view-lobby-waiting');
                 $('client-wait-msg').style.display = 'block';
             }
