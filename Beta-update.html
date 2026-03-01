@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="ku" dir="rtl">
-    
 <head>
-    <meta name="google-site-verification" content="bWLsSU11pzj71hKhUY4qFQn0XNRK8UuvUK35tRb3BzM" /> //test
+    <meta name="google-site-verification" content="bWLsSU11pzj71hKhUY4qFQn0XNRK8UuvUK35tRb3BzM" />
     <meta name="description" content="سیخوڕ (Spy Game) is a fun multiplayer social deduction game in Kurdish. Play with friends online or locally using one phone. Find the spy and win the game!">
     <meta name="keywords" content="Spy Game, سیخوڕ, Kurdish Game, Multiplayer Game, Online Spy Game, Bawan, Kurd Game, bawanu github">
     <meta name="author" content="Bawan">
@@ -860,7 +859,8 @@
             onlineVotes: {},
             mySelectedSuspect: null,
             isRoomLocked: false,
-            gamePhase: 'LOBBY'
+            gamePhase: 'LOBBY',
+            peerMap: {}
         };
 
         let isChatOpen = false;
@@ -953,15 +953,30 @@
         async function toggleMic() {
             if (!isMicOn) {
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        } 
+                    });
                     isMicOn = true;
                     updateMicUI(true);
                     startAudioMonitoring(localStream);
                     
                     if (state.isHost) {
                         hostConnections.forEach(conn => initiateBroadcastCall(conn.peer));
-                    } else if (myConn) {
-                        initiateBroadcastCall(myConn.peer);
+                    } else if (state.isOnline) {
+                        // Client: Call host
+                        if (myConn) initiateBroadcastCall(myConn.peer);
+                        // Client: Call all other clients using the peer map
+                        if (state.peerMap) {
+                            Object.values(state.peerMap).forEach(peerId => {
+                                if(peerId !== peer.id && peerId !== (myConn ? myConn.peer : null)) {
+                                    initiateBroadcastCall(peerId);
+                                }
+                            });
+                        }
                     }
                 } catch (err) {
                     showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە");
@@ -1078,6 +1093,7 @@
                     audio = document.createElement('audio');
                     audio.id = `audio-${call.peer}`;
                     audio.autoplay = true;
+                    audio.playsInline = true;
                     audio.style.display = "none";
                     $('remote-audio-container').appendChild(audio);
                 }
@@ -1291,7 +1307,8 @@
                     hostConnections = hostConnections.filter(c => c !== conn);
                     if(conn.playerName) {
                         state.playerStatus[conn.playerName] = 'offline';
-                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                        delete state.peerMap[conn.playerName];
+                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
                         renderLobbyPlayers();
                     }
                 });
@@ -1388,7 +1405,7 @@
                     if (state.playerStatus[conn.playerName] === 'offline') {
                         state.playerStatus[conn.playerName] = 'online';
                         renderLobbyPlayers();
-                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
                     }
                 }
                 return;
@@ -1431,9 +1448,14 @@
                 if (!isKnown) {
                     state.players.push(finalName);
                 }
+                state.peerMap[finalName] = conn.peer;
                 saveHostGameState();
                 renderLobbyPlayers();
-                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
+                
+                // If the host already had mic on, immediately call the new peer
+                if(isMicOn && localStream) initiateBroadcastCall(conn.peer);
+
                 if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
                     const playerObj = state.assignments.find(a => a.name === finalName);
                     if(playerObj) {
@@ -1465,9 +1487,10 @@
             else if (data.type === 'LEAVE_GAME') {
                 if (conn.playerName) {
                     state.playerStatus[conn.playerName] = 'offline';
+                    delete state.peerMap[conn.playerName];
                     saveHostGameState();
                     renderLobbyPlayers();
-                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
                 }
                 conn.close();
             }
@@ -1506,7 +1529,17 @@
             else if(data.type === 'UPDATE_LOBBY') {
                 state.players = data.players;
                 state.playerStatus = data.statuses || {};
+                if(data.peerMap) state.peerMap = data.peerMap;
                 renderLobbyPlayers();
+                
+                // Auto-mesh missing peers if our mic is on
+                if(isMicOn && data.peerMap) {
+                    Object.values(data.peerMap).forEach(peerId => {
+                        if(peerId !== peer.id && peerId !== (myConn ? myConn.peer : null) && !myBroadcastCalls[peerId]) {
+                            initiateBroadcastCall(peerId);
+                        }
+                    });
+                }
             }
             else if(data.type === 'KICKED') {
                 showToast("تۆ لە ژوورەک دەرکرایت");
@@ -1619,8 +1652,9 @@
                 hostConnections[connIdx].send({ type: 'KICKED' });
                 hostConnections.splice(connIdx, 1);
             }
+            delete state.peerMap[playerToKick];
             renderLobbyPlayers();
-            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
             saveHostGameState();
         }
 
