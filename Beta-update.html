@@ -901,7 +901,7 @@
                 });
                 if(changed) {
                     renderLobbyPlayers();
-                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
                 }
             }, 2000);
         }
@@ -953,36 +953,43 @@
         async function toggleMic() {
             if (!isMicOn) {
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                    localStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
                             echoCancellation: true,
                             noiseSuppression: true,
                             autoGainControl: true
-                        } 
+                        }
                     });
                     isMicOn = true;
                     updateMicUI(true);
                     startAudioMonitoring(localStream);
-                    
-                    if (state.isHost) {
-                        hostConnections.forEach(conn => initiateBroadcastCall(conn.peer));
-                    } else if (state.isOnline) {
-                        // Client: Call host
-                        if (myConn) initiateBroadcastCall(myConn.peer);
-                        // Client: Call all other clients using the peer map
-                        if (state.peerMap) {
-                            Object.values(state.peerMap).forEach(peerId => {
-                                if(peerId !== peer.id && peerId !== (myConn ? myConn.peer : null)) {
-                                    initiateBroadcastCall(peerId);
-                                }
-                            });
-                        }
-                    }
+                    callAllPeers();
                 } catch (err) {
                     showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە");
                 }
             } else {
                 stopMic();
+            }
+        }
+
+        function callAllPeers() {
+            if (!localStream) return;
+            if (state.isHost) {
+                // Host calls all connected clients
+                hostConnections.forEach(conn => {
+                    if (conn.peer) initiateBroadcastCall(conn.peer);
+                });
+            } else {
+                // Client calls host
+                if (myConn && myConn.peer) initiateBroadcastCall(myConn.peer);
+                // Client also calls all other clients via peerMap
+                if (state.peerMap) {
+                    Object.entries(state.peerMap).forEach(([name, peerId]) => {
+                        if (name !== state.myName && peerId !== (myConn && myConn.peer)) {
+                            initiateBroadcastCall(peerId);
+                        }
+                    });
+                }
             }
         }
 
@@ -1078,38 +1085,78 @@
 
         function initiateBroadcastCall(peerId) {
             if (!localStream) return;
-            const call = peer.call(peerId, localStream);
-            myBroadcastCalls[peerId] = call;
-            call.on('close', () => delete myBroadcastCalls[peerId]);
-            call.on('error', () => delete myBroadcastCalls[peerId]);
+            // Prevent duplicate calls to the same peer (causes echo)
+            if (myBroadcastCalls[peerId]) return;
+            try {
+                const call = peer.call(peerId, localStream);
+                if (!call) return;
+                myBroadcastCalls[peerId] = call;
+                call.on('stream', (remoteStream) => {
+                    attachRemoteAudio(call.peer, remoteStream);
+                });
+                call.on('close', () => {
+                    removeRemoteAudio(peerId);
+                    delete myBroadcastCalls[peerId];
+                });
+                call.on('error', () => {
+                    removeRemoteAudio(peerId);
+                    delete myBroadcastCalls[peerId];
+                });
+            } catch(e) {
+                console.log('Call initiation failed:', e);
+            }
         }
 
         function handleIncomingCall(call) {
+            // Prevent duplicate incoming from same peer (causes echo)
+            if (incomingMediaCalls[call.peer]) {
+                try { incomingMediaCalls[call.peer].close(); } catch(e) {}
+                removeRemoteAudio(call.peer);
+            }
             incomingMediaCalls[call.peer] = call;
-            call.answer(); 
+            // Answer with local stream if mic is on, otherwise receive-only
+            if (localStream) {
+                call.answer(localStream);
+            } else {
+                call.answer();
+            }
             call.on('stream', (remoteStream) => {
-                let audio = $(`audio-${call.peer}`);
-                if (!audio) {
-                    audio = document.createElement('audio');
-                    audio.id = `audio-${call.peer}`;
-                    audio.autoplay = true;
-                    audio.playsInline = true;
-                    audio.style.display = "none";
-                    $('remote-audio-container').appendChild(audio);
-                }
-                audio.srcObject = remoteStream;
-                audio.play().catch(e => console.log("Audio play blocked until interaction"));
+                attachRemoteAudio(call.peer, remoteStream);
             });
             call.on('close', () => {
-                const audio = $(`audio-${call.peer}`);
-                if (audio) audio.remove();
+                removeRemoteAudio(call.peer);
                 delete incomingMediaCalls[call.peer];
             });
             call.on('error', () => {
-                const audio = $(`audio-${call.peer}`);
-                if (audio) audio.remove();
+                removeRemoteAudio(call.peer);
                 delete incomingMediaCalls[call.peer];
             });
+        }
+
+        function attachRemoteAudio(peerId, remoteStream) {
+            // Don't play our own stream back to ourselves
+            if (peer && peerId === peer.id) return;
+            let audioId = `audio-${peerId}`;
+            let audio = $(audioId);
+            if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = audioId;
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.setAttribute('playsinline', '');
+                audio.style.display = 'none';
+                $('remote-audio-container').appendChild(audio);
+            }
+            audio.srcObject = remoteStream;
+            audio.play().catch(e => console.log('Audio play blocked until interaction'));
+        }
+
+        function removeRemoteAudio(peerId) {
+            const audio = $(`audio-${peerId}`);
+            if (audio) {
+                audio.srcObject = null;
+                audio.remove();
+            }
         }
 
         function toggleChat() {
@@ -1307,8 +1354,7 @@
                     hostConnections = hostConnections.filter(c => c !== conn);
                     if(conn.playerName) {
                         state.playerStatus[conn.playerName] = 'offline';
-                        delete state.peerMap[conn.playerName];
-                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
+                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
                         renderLobbyPlayers();
                     }
                 });
@@ -1405,7 +1451,7 @@
                     if (state.playerStatus[conn.playerName] === 'offline') {
                         state.playerStatus[conn.playerName] = 'online';
                         renderLobbyPlayers();
-                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
+                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
                     }
                 }
                 return;
@@ -1448,14 +1494,9 @@
                 if (!isKnown) {
                     state.players.push(finalName);
                 }
-                state.peerMap[finalName] = conn.peer;
                 saveHostGameState();
                 renderLobbyPlayers();
-                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
-                
-                // If the host already had mic on, immediately call the new peer
-                if(isMicOn && localStream) initiateBroadcastCall(conn.peer);
-
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
                 if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
                     const playerObj = state.assignments.find(a => a.name === finalName);
                     if(playerObj) {
@@ -1487,10 +1528,9 @@
             else if (data.type === 'LEAVE_GAME') {
                 if (conn.playerName) {
                     state.playerStatus[conn.playerName] = 'offline';
-                    delete state.peerMap[conn.playerName];
                     saveHostGameState();
                     renderLobbyPlayers();
-                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
+                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
                 }
                 conn.close();
             }
@@ -1505,6 +1545,16 @@
                     processVotingResult();
                 }
             }
+        }
+
+        function buildPeerMap() {
+            const map = {};
+            hostConnections.forEach(c => {
+                if (c.playerName && c.peer) {
+                    map[c.playerName] = c.peer;
+                }
+            });
+            return map;
         }
 
         function handleClientData(data) {
@@ -1531,15 +1581,8 @@
                 state.playerStatus = data.statuses || {};
                 if(data.peerMap) state.peerMap = data.peerMap;
                 renderLobbyPlayers();
-                
-                // Auto-mesh missing peers if our mic is on
-                if(isMicOn && data.peerMap) {
-                    Object.values(data.peerMap).forEach(peerId => {
-                        if(peerId !== peer.id && peerId !== (myConn ? myConn.peer : null) && !myBroadcastCalls[peerId]) {
-                            initiateBroadcastCall(peerId);
-                        }
-                    });
-                }
+                // If mic is on, call any new peers we don't have calls to yet
+                if(isMicOn && localStream) callAllPeers();
             }
             else if(data.type === 'KICKED') {
                 showToast("تۆ لە ژوورەک دەرکرایت");
@@ -1652,9 +1695,8 @@
                 hostConnections[connIdx].send({ type: 'KICKED' });
                 hostConnections.splice(connIdx, 1);
             }
-            delete state.peerMap[playerToKick];
             renderLobbyPlayers();
-            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: state.peerMap });
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
             saveHostGameState();
         }
 
