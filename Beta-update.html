@@ -72,7 +72,12 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: textShine 4s linear infinite;
+            animation: textShine 8s linear infinite;
+        }
+
+        /* Pause all animations inside non-active views to save CPU */
+        .view:not(.active) * {
+            animation-play-state: paused !important;
         }
 
         @keyframes shimmer-sweep {
@@ -127,6 +132,10 @@
             50% { transform: scale(1.1); opacity: 0.5; }
         }
 
+        /* GPU layer promotion for frequently animated elements */
+        .game-card { will-change: transform; }
+        .view { will-change: opacity, transform; }
+
         .toast-container {
             position: fixed;
             top: 20px;
@@ -142,7 +151,7 @@
         }
 
         .toast-box {
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(15, 23, 42, 0.97);
             border: 1px solid var(--accent);
             border-left: 5px solid var(--accent);
             color: #fff;
@@ -155,17 +164,17 @@
             font-size: 0.95rem;
             animation: toastEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, shake 0.4s 0.2s;
             pointer-events: all;
-            backdrop-filter: blur(10px);
+            /* Removed: backdrop-filter: blur(10px) — GPU-intensive, background is already opaque */
         }
 
         .toast-box.hiding { animation: toastExit 0.4s forwards; }
-        .toast-icon { font-size: 1.5rem; color: var(--accent); animation: pulse 1s infinite; }
+        .toast-icon { font-size: 1.5rem; color: var(--accent); animation: pulse 3s infinite; }
         @keyframes toastEnter { from { opacity: 0; transform: translateY(-50px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastExit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-20px) scale(0.9); } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
 
         .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0.5; }
-        .particle { position: absolute; border-radius: 50%; background: white; opacity: 0.3; animation: float infinite linear; }
+        .particle { position: absolute; border-radius: 50%; background: white; opacity: 0.3; animation: float infinite linear; will-change: transform; }
 
         .app-wrapper {
             width: 100%;
@@ -230,7 +239,7 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: textShine 5s linear infinite;
+            animation: textShine 10s linear infinite;
         }
 
         h2 {
@@ -243,7 +252,7 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: textShine 6s linear infinite;
+            animation: textShine 12s linear infinite;
         }
 
         .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; font-weight: 400; text-align: center; }
@@ -303,7 +312,7 @@
         }
         .topic-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
         .topic-card.selected { background: rgba(99, 102, 241, 0.2); border-color: var(--primary); box-shadow: inset 0 0 10px rgba(99, 102, 241, 0.2); }
-        .topic-card.selected::before { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.4), transparent); transform: skewX(-25deg); animation: shimmer-sweep 2.5s infinite; pointer-events: none; }
+        .topic-card.selected::before { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.4), transparent); transform: skewX(-25deg); animation: shimmer-sweep 5s infinite; pointer-events: none; }
         .topic-card.selected::after { content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: 8px; right: 8px; font-size: 0.8rem; color: var(--primary); }
         .topic-card i { font-size: 1.5rem; margin-bottom: 5px; }
 
@@ -324,7 +333,7 @@
             cursor: pointer; margin-top: 5px; z-index: 100;
             position: relative; overflow: hidden; transition: 0.2s;
             display: flex; justify-content: center; align-items: center; gap: 10px; flex-shrink: 0;
-            animation: glow-pulse 3s infinite;
+            animation: glow-pulse 6s infinite;
         }
         .primary-btn.secondary { background: var(--glass); border: 1px solid var(--glass-border); animation: none; }
         .primary-btn.danger { background: rgba(244, 63, 94, 0.2); border: 1px solid var(--accent); color: var(--accent); animation: none; }
@@ -332,8 +341,8 @@
         .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); animation: none; }
         .primary-btn.success:hover { background: rgba(16, 185, 129, 0.4); }
 
-        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
-        .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite ease-in-out; pointer-events: none; }
+        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 8s linear infinite; }
+        .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 5s infinite ease-in-out; pointer-events: none; }
         .primary-btn:active { transform: scale(0.98); }
         .primary-btn:hover { box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.7); }
         .primary-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; animation: none; }
@@ -351,14 +360,14 @@
             background-size: cover; background-position: center;
         }
         .face-front { background: var(--card-front-grad); z-index: 2; }
-        .fingerprint { font-size: 5rem; color: rgba(255,255,255,0.1); margin-bottom: 20px; animation: pulse 2s infinite; }
+        .fingerprint { font-size: 5rem; color: rgba(255,255,255,0.1); margin-bottom: 20px; animation: pulse 4s infinite; }
         .tap-text { color: rgba(255,255,255,0.6); font-size: 1rem; letter-spacing: 2px; text-transform: uppercase; }
         .face-back { transform: rotateY(180deg); background: white; color: #1e293b; padding: 20px; }
         .role-badge { background: #1e293b; color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; }
-        .secret-word { font-size: 2.5rem; font-weight: 900; color: #1e293b; line-height: 1.4; margin: 15px 0; word-break: break-word; background: linear-gradient(120deg, #1e293b 40%, #6366f1 50%, #1e293b 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
+        .secret-word { font-size: 2.5rem; font-weight: 900; color: #1e293b; line-height: 1.4; margin: 15px 0; word-break: break-word; background: linear-gradient(120deg, #1e293b 40%, #6366f1 50%, #1e293b 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 7s linear infinite; }
         .face-back.spy-mode { background: #111; color: #fff; border: 3px solid var(--accent); }
         .face-back.spy-mode .role-badge { background: var(--accent); color: #fff; }
-        .face-back.spy-mode .secret-word { color: var(--accent); font-size: 3.5rem; text-shadow: 0 0 20px rgba(244, 63, 94, 0.4); margin: 30px 0; background: linear-gradient(120deg, #f43f5e 40%, #fff 50%, #f43f5e 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .face-back.spy-mode .secret-word { color: var(--accent); font-size: 3.5rem; text-shadow: 0 0 20px rgba(244, 63, 94, 0.4); margin: 30px 0; background: linear-gradient(120deg, #f43f5e 40%, #fff 50%, #f43f5e 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 7s linear infinite; }
 
         .timer-ring {
             position: relative; width: 220px; height: 220px; border-radius: 50%;
@@ -373,7 +382,7 @@
         .starter-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 30px; border-radius: 24px; border: 1px solid var(--glass-border); text-align: center; margin: auto; box-shadow: 0 30px 80px rgba(0,0,0,0.7); transform: scale(0.9); animation: bounceIn 0.5s forwards; width: 90%; max-width: 400px; }
         .starter-avatar { width: 70px; height: 70px; background: var(--gold); border-radius: 50%; margin: 0 auto 15px; display: grid; place-items: center; font-size: 2rem; color: #000; }
 
-        .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 50; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s; }
+        .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.88); z-index: 50; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s; /* Removed backdrop-filter: blur — GPU-intensive */ }
         .modal-overlay.open { display: flex; opacity: 1; }
         .modal-content { width: 90%; max-width: 500px; background: #1e293b; padding: 25px; border-radius: 24px; max-height: 85%; overflow-y: auto; border: 1px solid var(--glass-border); position: relative; }
         .modal-close { position: absolute; top: 15px; right: 15px; color: var(--text-muted); background: transparent; border: none; font-size: 1.5rem; cursor: pointer; }
@@ -424,11 +433,11 @@
         .footer { width: 100%; text-align: center; padding: 15px 0 5px 0; font-size: 0.75rem; color: rgba(255,255,255,0.4); letter-spacing: 1px; text-transform: uppercase; }
         .footer b { color: var(--primary); font-weight: 900; }
 
-        .waiting-message { font-size: 1.2rem; color: var(--text-muted); animation: pulse 1s infinite; margin-top: 20px; text-align: center;}
+        .waiting-message { font-size: 1.2rem; color: var(--text-muted); animation: pulse 3s infinite; margin-top: 20px; text-align: center;}
 
         #chat-drawer {
             position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%;
-            background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(15px); z-index: 3000;
+            background: rgba(15, 23, 42, 0.99); z-index: 3000; /* Removed backdrop-filter: blur — GPU-intensive */
             transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column;
             border-left: 1px solid var(--glass-border); box-shadow: -10px 0 30px rgba(0,0,0,0.5);
         }
@@ -903,7 +912,7 @@
                     renderLobbyPlayers();
                     broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
                 }
-            }, 2000);
+            }, 3000); // slowed from 2000ms — reduces unnecessary DOM re-renders
         }
 
         document.addEventListener("visibilitychange", () => {
@@ -1817,7 +1826,7 @@
                     return;
                 }
             }
-            if(audioCtx.state === 'suspended') audioCtx.resume();
+            if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             state.numSpies = parseInt($('spy-count').innerText);
             state.maxGuesses = parseInt($('guess-count').innerText);
             let pool = [];
@@ -2199,74 +2208,85 @@
             }
         }
 
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Lazy AudioContext — created on first use instead of at page load
+        let audioCtx = null;
+        let noiseBuffer = null;
+
+        function getAudioCtx() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                noiseBuffer = createNoiseBuffer();
+            }
+            return audioCtx;
+        }
 
         function createNoiseBuffer() {
-            const bufferSize = audioCtx.sampleRate * 2;
-            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const ctx = audioCtx;
+            const bufferSize = ctx.sampleRate * 2;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
             const output = buffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; }
             return buffer;
         }
 
-        const noiseBuffer = createNoiseBuffer();
-
         function playTone(freq, type, duration, vol=0.1) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
+            const ctx = getAudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
             osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            gain.gain.setValueAtTime(vol, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            gain.connect(ctx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + duration);
+            osc.stop(ctx.currentTime + duration);
         }
 
         function playSfx(type) {
             if(!state.isSoundOn) return;
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            const now = audioCtx.currentTime;
+            const ctx = getAudioCtx();
+            if(ctx.state === 'suspended') ctx.resume();
+            const now = ctx.currentTime;
             if(type === 'click') { playTone(800, 'sine', 0.1, 0.05); }
             else if(type === 'pop') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
                 osc.frequency.setValueAtTime(400, now);
                 osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
                 gain.gain.setValueAtTime(0.1, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.connect(gain); gain.connect(ctx.destination);
                 osc.start(); osc.stop(now + 0.1);
             }
             else if(type === 'swish') {
-                const source = audioCtx.createBufferSource();
+                const source = ctx.createBufferSource();
                 source.buffer = noiseBuffer;
-                const filter = audioCtx.createBiquadFilter();
+                const filter = ctx.createBiquadFilter();
                 filter.type = 'lowpass';
                 filter.frequency.setValueAtTime(600, now);
                 filter.frequency.linearRampToValueAtTime(100, now + 0.3);
-                const gain = audioCtx.createGain();
+                const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0.05, now);
                 gain.gain.linearRampToValueAtTime(0, now + 0.3);
-                source.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                source.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
                 source.start(); source.stop(now + 0.3);
             }
             else if(type === 'flip') { playTone(300, 'triangle', 0.15, 0.05); }
             else if(type === 'tick') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(1200, now);
                 gain.gain.setValueAtTime(0.05, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.connect(gain); gain.connect(ctx.destination);
                 osc.start(); osc.stop(now + 0.05);
             }
             else if(type === 'victory') { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => { setTimeout(() => playTone(f, 'triangle', 0.6, 0.05), i * 80); }); }
             else if(type === 'alarm') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(523.25, now);
                 osc.frequency.exponentialRampToValueAtTime(520, now + 0.5);
@@ -2274,7 +2294,7 @@
                 gain.gain.linearRampToValueAtTime(0.15, now + 0.02);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
                 osc.connect(gain);
-                gain.connect(audioCtx.destination);
+                gain.connect(ctx.destination);
                 osc.start();
                 osc.stop(now + 0.6);
             }
@@ -2282,12 +2302,12 @@
 
         function triggerVibrate(pattern) { if (state.isHapticsOn && navigator.vibrate) navigator.vibrate(pattern); }
 
+        // Particles — reduced from 20 to 8 and made slower for lower GPU/CPU load
         const pC=$('particles');
-        for(let i=0;i<20;i++){
+        for(let i=0;i<8;i++){
             const p=document.createElement('div');
             p.className='particle';
-            p.style.left=Math.random()*100+'%';
-            p.style.animationDuration=(Math.random()*10+10)+'s';
+            p.style.cssText = `left:${Math.random()*100}%; width:${Math.random()*4+2}px; height:${Math.random()*4+2}px; animation-duration:${Math.random()*15+20}s; animation-delay:${Math.random()*10}s;`;
             pC.appendChild(p);
         }
 
