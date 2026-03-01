@@ -332,7 +332,7 @@
         .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); animation: none; }
         .primary-btn.success:hover { background: rgba(16, 185, 129, 0.4); }
 
-        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textSh Shine 3s linear infinite; }
+        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 3s linear infinite; }
         .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite ease-in-out; pointer-events: none; }
         .primary-btn:active { transform: scale(0.98); }
         .primary-btn:hover { box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.7); }
@@ -471,6 +471,7 @@
         </div>
     </div>
 
+    <!-- Hidden audio elements container -->
     <div id="remote-audio-container" style="display:none"></div>
 
     <div class="app-wrapper">
@@ -813,6 +814,32 @@
             "custom": { label: "تایبەت", icon: "fa-pen-fancy", words: [] }
         };
 
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' },
+                    {
+                        urls: "turn:openrelay.metered.ca:80",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ],
+                iceCandidatePoolSize: 0
+            }
+        };
+
         let heartbeatInterval = null;
         let lastPong = {};
         let audioMonitorInt = null;
@@ -839,7 +866,8 @@
         let unreadCount = 0;
         let isMicOn = false;
         let localStream = null;
-        let activeCalls = {};
+        let myBroadcastCalls = {}; // Track calls I started
+        let incomingMediaCalls = {}; // Track calls started by others to me
 
         function startHostHeartbeat() {
             if(heartbeatInterval) clearInterval(heartbeatInterval);
@@ -848,6 +876,13 @@
                     clearInterval(heartbeatInterval);
                     return;
                 }
+                
+                // If the peer is disconnected from signaling server, try to reconnect
+                if (peer && peer.disconnected) {
+                    console.log("Peer signaling disconnected. Reconnecting...");
+                    peer.reconnect();
+                }
+
                 broadcast({ type: 'PING' });
                 const now = Date.now();
                 let changed = false;
@@ -921,10 +956,11 @@
                     isMicOn = true;
                     updateMicUI(true);
                     startAudioMonitoring(localStream);
+                    
                     if (state.isHost) {
-                        hostConnections.forEach(conn => initiateCall(conn.peer));
+                        hostConnections.forEach(conn => initiateBroadcastCall(conn.peer));
                     } else if (myConn) {
-                        initiateCall(myConn.peer);
+                        initiateBroadcastCall(myConn.peer);
                     }
                 } catch (err) {
                     showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە");
@@ -944,8 +980,11 @@
             updateMicUI(false);
             handleTalkingStatus(state.myName, false);
             broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: false });
-            Object.values(activeCalls).forEach(call => call.close());
-            activeCalls = {};
+            
+            Object.values(myBroadcastCalls).forEach(call => {
+                if (call.open) call.close();
+            });
+            myBroadcastCalls = {};
         }
 
         function updateMicUI(on) {
@@ -967,57 +1006,92 @@
                 source.connect(analyser);
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
                 let lastStatus = false;
+                let silenceCounter = 0;
                 audioMonitorInt = setInterval(() => {
                     analyser.getByteFrequencyData(dataArray);
                     let sum = 0;
                     for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
                     let average = sum / dataArray.length;
-                    let isTalking = average > 20;
+                    
+                    let isTalking = false;
+                    if(average > 25) {
+                        isTalking = true;
+                        silenceCounter = 0;
+                    } else {
+                        silenceCounter++;
+                        if(silenceCounter < 5) {
+                            isTalking = lastStatus;
+                        } else {
+                            isTalking = false;
+                        }
+                    }
+
                     if(isTalking !== lastStatus) {
                         lastStatus = isTalking;
                         handleTalkingStatus(state.myName, isTalking);
                         broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: isTalking });
                     }
-                }, 100);
+                }, 150);
             } catch(e) {}
         }
 
         function handleTalkingStatus(name, status) {
             state.talkingStatus[name] = status;
-            renderLobbyPlayers();
+            const lobbyList = $('lobby-players-list');
+            if(lobbyList) {
+                const tags = lobbyList.querySelectorAll('.tag');
+                tags.forEach(tag => {
+                    if(tag.innerText.trim().startsWith(name)) {
+                        if(status) tag.classList.add('talking-indicator');
+                        else tag.classList.remove('talking-indicator');
+                    }
+                });
+            }
             updateSuspectGlows();
         }
 
         function updateSuspectGlows() {
             document.querySelectorAll('.suspect-card').forEach(card => {
-                const name = card.querySelector('div').innerText;
+                const nameDiv = card.querySelector('div:last-child');
+                if(!nameDiv) return;
+                const name = nameDiv.innerText;
                 if(state.talkingStatus[name]) card.classList.add('talking-indicator');
                 else card.classList.remove('talking-indicator');
             });
         }
 
-        function initiateCall(peerId) {
+        function initiateBroadcastCall(peerId) {
             if (!localStream) return;
             const call = peer.call(peerId, localStream);
-            handleIncomingCall(call);
+            myBroadcastCalls[peerId] = call;
+            call.on('close', () => delete myBroadcastCalls[peerId]);
+            call.on('error', () => delete myBroadcastCalls[peerId]);
         }
 
         function handleIncomingCall(call) {
-            activeCalls[call.peer] = call;
+            incomingMediaCalls[call.peer] = call;
+            call.answer(); 
             call.on('stream', (remoteStream) => {
                 let audio = $(`audio-${call.peer}`);
                 if (!audio) {
                     audio = document.createElement('audio');
                     audio.id = `audio-${call.peer}`;
                     audio.autoplay = true;
+                    audio.style.display = "none";
                     $('remote-audio-container').appendChild(audio);
                 }
                 audio.srcObject = remoteStream;
+                audio.play().catch(e => console.log("Audio play blocked until interaction"));
             });
             call.on('close', () => {
                 const audio = $(`audio-${call.peer}`);
                 if (audio) audio.remove();
-                delete activeCalls[call.peer];
+                delete incomingMediaCalls[call.peer];
+            });
+            call.on('error', () => {
+                const audio = $(`audio-${call.peer}`);
+                if (audio) audio.remove();
+                delete incomingMediaCalls[call.peer];
             });
         }
 
@@ -1173,14 +1247,7 @@
             }
             saveSession(true, name, customCode);
             if(peer) peer.destroy();
-            peer = new Peer("spygame-" + customCode, {
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
-            });
+            peer = new Peer("bawan-spy-prod-" + customCode, PEER_CONFIG);
             peer.on('open', (id) => {
                 $('display-room-code').innerText = customCode;
                 state.playerStatus[state.myName] = 'online';
@@ -1203,10 +1270,7 @@
                 if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
                 startHostHeartbeat();
             });
-            peer.on('call', (call) => {
-                call.answer(localStream || undefined);
-                handleIncomingCall(call);
-            });
+            peer.on('call', (call) => handleIncomingCall(call));
             peer.on('error', (err) => {
                 if(err.type === 'unavailable-id') {
                     if(isRestore) {
@@ -1216,7 +1280,7 @@
                          clearSession();
                     }
                 } else {
-                    showToast("هەڵەی پەیوەندی");
+                    showToast("هەڵەی پەیوەندی: " + err.type);
                 }
             });
             peer.on('connection', (conn) => {
@@ -1259,32 +1323,33 @@
             state.myName = name;
             state.isOnline = true;
             state.isHost = false;
+            
+            showToast("پەیوەندی دەبەسترێت...");
+            
             if(peer) peer.destroy();
-            peer = new Peer(null, {
-                 config: {
-                      iceServers: [
-                          { urls: 'stun:stun.l.google.com:19302' },
-                          { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
-            });
+            peer = new Peer(null, PEER_CONFIG);
             peer.on('open', (id) => {
-                connectToHost(code, name, isRestore);
+                setTimeout(() => {
+                    connectToHost(code, name, isRestore);
+                }, 800);
             });
-            peer.on('call', (call) => {
-                call.answer(localStream || undefined);
-                handleIncomingCall(call);
-            });
+            peer.on('call', (call) => handleIncomingCall(call));
             peer.on('error', (err) => {
+                if(err.type === 'peer-unavailable') {
+                    showToast("ژوورەکە نەدۆزرایەوە (کۆدەکە هەڵەیە)");
+                } else {
+                    showToast("هەڵەیەک ڕوویدا: " + err.type);
+                }
                 clearSession();
-                showToast("کۆدەکە هەڵەیە یان سێرڤەر نەماوە");
                 exitToMainMenu();
             });
         }
 
         function connectToHost(code, name, isRestore) {
             if(reconnectInterval) clearInterval(reconnectInterval);
-            const conn = peer.connect("spygame-" + code);
+            const conn = peer.connect("bawan-spy-prod-" + code, {
+                reliable: true
+            });
             conn.on('open', () => {
                 myConn = conn;
                 if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
