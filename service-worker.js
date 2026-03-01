@@ -3,13 +3,14 @@ const CACHE_NAME = 'my-game-cache-v3.7.4';
 const URLS_TO_CACHE = [
   './',
   './index.html',
+  './style.css',
+  './script.js',
   './manifest.json',
   './icons/favicon.ico',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
 
-  // External CDN Resources
   'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js'
@@ -17,9 +18,7 @@ const URLS_TO_CACHE = [
 
 
 
-/* =========================
-   1️⃣ INSTALL
-========================= */
+
 self.addEventListener('install', event => {
   console.log('[SW] Installing...');
 
@@ -36,15 +35,12 @@ self.addEventListener('install', event => {
       })
   );
 
-  // Activate immediately
   self.skipWaiting();
 });
 
 
 
-/* =========================
-   2️⃣ ACTIVATE
-========================= */
+
 self.addEventListener('activate', event => {
   console.log('[SW] Activating...');
 
@@ -63,15 +59,12 @@ self.addEventListener('activate', event => {
     })
   );
 
-  // Take control immediately
   self.clients.claim();
 });
 
 
 
-/* =========================
-   3️⃣ FETCH — Stale While Revalidate
-========================= */
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
@@ -104,7 +97,6 @@ self.addEventListener('fetch', event => {
               return cachedResponse;
             });
 
-          // Return cache immediately if available
           return cachedResponse || networkFetch;
         });
     })
