@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-game-cache-v3.7.4';
+const CACHE_NAME = 'my-game-cache-v3.7.5';
 
 const URLS_TO_CACHE = [
   './',
