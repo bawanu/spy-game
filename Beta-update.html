@@ -1060,16 +1060,7 @@
 
         function handleTalkingStatus(name, status) {
             state.talkingStatus[name] = status;
-            const lobbyList = $('lobby-players-list');
-            if(lobbyList) {
-                const tags = lobbyList.querySelectorAll('.tag');
-                tags.forEach(tag => {
-                    if(tag.innerText.trim().startsWith(name)) {
-                        if(status) tag.classList.add('talking-indicator');
-                        else tag.classList.remove('talking-indicator');
-                    }
-                });
-            }
+            renderLobbyPlayers();
             updateSuspectGlows();
         }
 
@@ -1819,6 +1810,13 @@
         function initGame() {
             if (state.players.length < 3) { showToast("لانی کەم دەبێت ٣ یاریزان هەبن"); return; }
             if (state.selectedCats.size === 0) { showToast("تکایە لانی کەم بابەتێک هەڵبژێرە"); return; }
+            if (state.isOnline && state.isHost) {
+                const offlinePlayers = state.players.filter(p => p !== state.myName && state.playerStatus[p] !== 'online');
+                if (offlinePlayers.length > 0) {
+                    showToast("هەموو یاریزانەکان دەبێت ئۆنڵاین بن! (" + offlinePlayers.join(", ") + " ئۆفلاینە)");
+                    return;
+                }
+            }
             if(audioCtx.state === 'suspended') audioCtx.resume();
             state.numSpies = parseInt($('spy-count').innerText);
             state.maxGuesses = parseInt($('guess-count').innerText);
