@@ -178,7 +178,7 @@
                     startAudioMonitoring(localStream);
                     callAllPeers();
                 } catch (err) {
-                    showToast("ڕێگەپێدانی مایکرۆفۆن پێویستە");
+                    showToast(t("toast-mic-needed"));
                 }
             } else {
                 stopMic();
@@ -430,6 +430,7 @@
         });
 
         function startLocalMode() {
+            showLanguageSwitcher();
             state.isOnline = false;
             state.isHost = true;
             $('btn-exit').style.display = 'grid';
@@ -463,6 +464,7 @@
         }
 
         function performExitCleanup() {
+            showLanguageSwitcher();
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             heartbeatInterval = null;
             lastPong = {};
@@ -500,7 +502,7 @@
         function createOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
             let customCode = $('room-code-input').value.trim();
-            if(!name) return showToast("تکایە ناوەکەت بنووسە");
+            if(!name) return showToast(t("toast-enter-name"));
             if(!customCode) {
                 customCode = Math.floor(1000 + Math.random() * 9000).toString();
                 $('room-code-input').value = customCode;
@@ -535,7 +537,7 @@
                 $('host-controls').style.display = 'flex';
                 $('client-wait-msg').style.display = 'none';
                 updateLockBtnUI();
-                if(isRestore) showToast("گەڕایتەوە بۆ ژوورەکەت");
+                if(isRestore) showToast(t("toast-back-to-room"));
                 startHostHeartbeat();
             });
             peer.on('call', (call) => handleIncomingCall(call));
@@ -544,11 +546,11 @@
                     if(isRestore) {
                          setTimeout(() => createOnlineRoom(true), 1500);
                     } else {
-                         showToast("ئەم کۆدە بەکارهاتووە");
+                         showToast(t("toast-room-used"));
                          clearSession();
                     }
                 } else {
-                    showToast("هەڵەی پەیوەندی: " + err.type);
+                    showToast(t("toast-conn-error") + " " + err.type);
                 }
             });
             peer.on('connection', (conn) => {
@@ -568,7 +570,7 @@
         function toggleRoomLock() {
             state.isRoomLocked = !state.isRoomLocked;
             updateLockBtnUI();
-            showToast(state.isRoomLocked ? "ژوورەکە داخرا" : "ژوورەکە کرایەوە");
+            showToast(state.isRoomLocked ? t("toast-room-locked") : t("toast-room-unlocked"));
             saveHostGameState();
         }
 
@@ -576,23 +578,23 @@
             const btn = $('btn-lock-room');
             if(state.isRoomLocked) {
                 btn.className = "primary-btn success";
-                btn.innerHTML = `<span>کردنەوەی ژوور</span> <i class="fas fa-lock-open"></i>`;
+                btn.innerHTML = `<span data-i18n="btn-unlock-room">کردنەوەی ژوور</span> <i class="fas fa-lock-open"></i>`;
             } else {
                 btn.className = "primary-btn danger";
-                btn.innerHTML = `<span>داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
+                btn.innerHTML = `<span data-i18n="btn-lock-room">داخستنی ژوور</span> <i class="fas fa-lock"></i>`;
             }
         }
 
         function joinOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
             const code = $('room-code-input').value.trim();
-            if(!name || !code) return showToast("ناو و کۆد بنووسە");
+            if(!name || !code) return showToast(t("toast-enter-name-code"));
             saveSession(false, name, code);
             state.myName = name;
             state.isOnline = true;
             state.isHost = false;
             
-            showToast("پەیوەندی دەبەسترێت...");
+            showToast(t("toast-connecting"));
             
             if(peer) peer.destroy();
             peer = new Peer(null, PEER_CONFIG);
@@ -604,9 +606,9 @@
             peer.on('call', (call) => handleIncomingCall(call));
             peer.on('error', (err) => {
                 if(err.type === 'peer-unavailable') {
-                    showToast("ژوورەکە نەدۆزرایەوە (کۆدەکە هەڵەیە)");
+                    showToast(t("toast-room-not-found"));
                 } else {
-                    showToast("هەڵەیەک ڕوویدا: " + err.type);
+                    showToast(t("toast-error-occured") + " " + err.type);
                 }
                 clearSession();
                 exitToMainMenu();
@@ -633,13 +635,13 @@
                 $('host-controls').style.display = 'none';
                 $('client-wait-msg').style.display = 'block';
                 $('client-wait-msg').innerText = "چاوەڕێی سێرڤەر بە یاریەکە دەستپێبکات...";
-                if(isRestore) showToast("گەڕایتەوە ناو یاری");
+                if(isRestore) showToast(t("toast-back-to-game"));
             });
             conn.on('data', (data) => handleClientData(data));
             conn.on('close', () => {
                 myConn = null;
                 $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
-                showToast("پەیوەندی پچڕا! هەوڵدەدات پەیوەست بێتەوە...");
+                showToast(t("toast-reconnecting"));
                 if(!reconnectInterval) {
                     reconnectInterval = setInterval(() => {
                         connectToHost(code, name, true);
@@ -778,7 +780,7 @@
                 state.myName = data.newName;
                 $('my-name-input').value = data.newName;
                 saveSession(false, state.myName, $('room-code-input').value);
-                showToast("ناوەکەت گۆڕدرا بۆ: " + data.newName + " (ناوی دووبارە)");
+                showToast(t("toast-name-changed") + data.newName + t("toast-name-changed-suffix"));
             }
             else if(data.type === 'UPDATE_LOBBY') {
                 state.players = data.players;
@@ -789,21 +791,23 @@
                 if(isMicOn && localStream) callAllPeers();
             }
             else if(data.type === 'KICKED') {
-                showToast("تۆ لە ژوورەک دەرکرایت");
+                showToast(t("toast-kicked"));
                 clearSession();
                 setTimeout(() => performExitCleanup(), 1000);
             }
             else if(data.type === 'ROOM_LOCKED_ERROR') {
-                showToast("ژوورەکە داخراوە!");
+                showToast(t("toast-room-locked-err"));
                 clearSession();
                 setTimeout(() => performExitCleanup(), 1000);
             }
             else if(data.type === 'START_GAME') {
+                hideLanguageSwitcher();
                 loadGameData(data);
                 transitionTo('view-cards');
                 updateOnlineCardView();
             }
             else if(data.type === 'RESTORE_GAME') {
+                hideLanguageSwitcher();
                 if(data.players) state.players = data.players;
                 if(data.statuses) state.playerStatus = data.statuses;
                 loadGameData(data);
@@ -819,7 +823,7 @@
                     initVotingPhase();
                     transitionTo('view-results');
                     const vCount = Object.keys(data.votes || {}).length;
-                    $('voting-status').innerText = `دەنگدان... (${vCount} / ${state.players.length})`;
+                    $('voting-status').innerText = t("status-voting") + ` (${vCount} / ${state.players.length})`;
                 }
             }
             else if(data.type === 'SHOW_STARTER') {
@@ -842,17 +846,18 @@
                     endGame();
             }
             else if(data.type === 'VOTE_PROGRESS') {
-                $('voting-status').innerText = `دەنگدان... (${data.count} / ${data.total})`;
+                $('voting-status').innerText = t("status-voting") + ` (${data.count} / ${data.total})`;
             }
             else if(data.type === 'VOTE_RESULT') {
                 revealEverything(data.winner, data.assignments);
             }
             else if(data.type === 'RETURN_TO_LOBBY') {
+                showLanguageSwitcher();
                 transitionTo('view-lobby-waiting');
                 $('client-wait-msg').style.display = 'block';
             }
             else if(data.type === 'ROOM_CLOSED') {
-                showToast("سێرڤەرەکە داخرا!");
+                showToast(t("toast-server-closed"));
                 clearSession();
                 setTimeout(() => performExitCleanup(), 1500);
             }
@@ -905,6 +910,7 @@
         }
 
         function setupOnlineGame() {
+            showLanguageSwitcher();
             state.gamePhase = 'SETUP';
             saveHostGameState();
             transitionTo('view-setup');
@@ -916,12 +922,14 @@
         }
 
         function backToLobby() {
+            showLanguageSwitcher();
             state.gamePhase = 'LOBBY';
             saveHostGameState();
             transitionTo('view-lobby-waiting');
         }
 
         function resetGameToLobby() {
+            showLanguageSwitcher();
             if(state.isOnline) {
                 if(state.isHost) {
                     broadcast({ type: 'RETURN_TO_LOBBY' });
@@ -1021,16 +1029,17 @@
         }
 
         function initGame() {
-            if (state.players.length < 3) { showToast("لانی کەم دەبێت ٣ یاریزان هەبن"); return; }
-            if (state.selectedCats.size === 0) { showToast("تکایە لانی کەم بابەتێک هەڵبژێرە"); return; }
+            if (state.players.length < 3) { showToast(t("toast-min-players")); return; }
+            if (state.selectedCats.size === 0) { showToast(t("toast-min-topic")); return; }
             if (state.isOnline && state.isHost) {
                 const offlinePlayers = state.players.filter(p => p !== state.myName && state.playerStatus[p] !== 'online');
                 if (offlinePlayers.length > 0) {
-                    showToast("هەموو یاریزانەکان دەبێت ئۆنڵاین بن! (" + offlinePlayers.join(", ") + " ئۆفلاینە)");
+                    showToast(t("toast-offline-players") + offlinePlayers.join(", ") + ")");
                     return;
                 }
             }
             if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            hideLanguageSwitcher();
             state.numSpies = parseInt($('spy-count').innerText);
             state.maxGuesses = parseInt($('guess-count').innerText);
             let pool = [];
@@ -1043,7 +1052,7 @@
                     pool = pool.concat(CATEGORIES[catKey].words);
                 }
             });
-            if(pool.length === 0) { showToast("هەڵەیەک ڕوویدا"); return; }
+            if(pool.length === 0) { showToast(t("toast-error")); return; }
             state.currentWord = pool[Math.floor(Math.random() * pool.length)];
             let roles = Array(state.numSpies).fill('spy').concat(Array(state.players.length - state.numSpies).fill('citizen'));
             roles.sort(() => Math.random() - 0.5);
@@ -1112,14 +1121,14 @@
         function applyRoleToCard(isSpy) {
             if (isSpy) {
                 $('card-back').className = `card-face face-back spy-mode`;
-                $('card-role').innerText = "نـهێـنـی";
-                $('card-word').innerText = "تۆ سیخوڕیت!";
-                $('card-desc').innerText = "خۆت وەکو هاوڵاتی دەربخە. هەوڵبدە لە قسەی ئەوانی ترەوە وشەکە بزانیت.";
+                $('card-role').innerText = t("spy-role");
+                $('card-word').innerText = t("spy-word");
+                $('card-desc').innerText = t("spy-desc");
             } else {
                 $('card-back').className = `card-face face-back`;
-                $('card-role').innerText = "تۆ هاوڵاتییت";
+                $('card-role').innerText = t("citizen-role");
                 $('card-word').innerText = state.currentWord;
-                $('card-desc').innerText = "سیخوڕەکە لە ناوتاندایە. وریا بە لە کاتی پرسیارکردن.";
+                $('card-desc').innerText = t("citizen-desc");
             }
         }
 
@@ -1174,6 +1183,7 @@
             if(state.isOnline && !state.isHost) {
                 return;
             }
+            hideLanguageSwitcher();
             state.gamePhase = 'TIMER';
             if(state.isOnline) saveHostGameState();
             transitionTo('view-timer');
@@ -1235,6 +1245,7 @@
         }
 
         function initVotingPhase() {
+            hideLanguageSwitcher();
             state.gamePhase = 'VOTING';
             if(state.isHost) saveHostGameState();
             $('phase-voting').style.display = 'flex';
@@ -1256,7 +1267,7 @@
                 $('attempts-count').innerText = state.guessesLeft;
                 state.activeSpies = state.numSpies;
                 state.activeCitizens = state.players.length - state.numSpies;
-                $('voting-status').innerText = "تکایە گومانلێکراو هەڵبژێرە";
+                $('voting-status').innerText = t("status-pls-vote");
                 $('btn-confirm-vote').style.display = 'none';
                 $('btn-force-end').style.display = 'none';
                 $('btn-reveal-all').style.display = 'block';
@@ -1291,7 +1302,7 @@
 
         function confirmVote() {
             if(!state.mySelectedSuspect) return;
-            $('btn-confirm-vote').innerText = "چاوەڕوانی ئەوانیت...";
+            $('btn-confirm-vote').innerText = t("btn-waiting-others");
             $('btn-confirm-vote').disabled = true;
             document.querySelectorAll('.suspect-card').forEach(el => el.style.pointerEvents = 'none');
             const myVoteData = { type: 'SUBMIT_VOTE', suspect: state.mySelectedSuspect, voter: state.myName };
@@ -1309,7 +1320,7 @@
             const voteCount = Object.keys(state.onlineVotes).length;
             const totalPlayers = state.players.length;
             broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
-            $('voting-status').innerText = `دەنگدان... (${voteCount} / ${totalPlayers})`;
+            $('voting-status').innerText = t("status-voting") + ` (${voteCount} / ${totalPlayers})`;
             if(voteCount >= totalPlayers) setTimeout(processVotingResult, 1000);
         }
 
@@ -1350,14 +1361,14 @@
                 btnElement.classList.add('caught');
                 btnElement.innerHTML = `<i class="fas fa-check"></i><div>${player.name}</div>`;
                 statusBox.className = 'status-box success';
-                statusBox.innerText = `ئافەرین! ${player.name} سیخوڕ بوو!`;
+                statusBox.innerText = t("status-spy-caught", {name: player.name});
                 if (state.activeSpies === 0) setTimeout(() => revealEverything('citizens'), 1000);
             } else {
                 playSfx('pop'); triggerVibrate(50);
                 state.activeCitizens--;
                 btnElement.classList.add('eliminated');
                 statusBox.className = 'status-box error';
-                statusBox.innerText = `${player.name} بێتاوانە! سیخوڕ نییە.`;
+                statusBox.innerText = t("status-citizen-eliminated", {name: player.name});
             }
             if (state.guessesLeft <= 0 && state.activeSpies > 0) setTimeout(() => revealEverything('spies'), 1000);
         }
@@ -1368,15 +1379,15 @@
             winDisplay.innerHTML = '';
             if (winner === 'citizens') {
                 winDisplay.className = "winner-header winner-citizens";
-                winDisplay.innerHTML = `<i class="fas fa-trophy"></i><h1>هاوڵاتیان بردیانەوە!</h1>`;
+                winDisplay.innerHTML = `<i class="fas fa-trophy"></i><h1>` + t("winner-citizens") + `</h1>`;
                 playSfx('victory');
             } else if (winner === 'spies') {
                 winDisplay.className = "winner-header winner-spies";
-                winDisplay.innerHTML = `<i class="fas fa-user-secret"></i><h1>سیخوڕەکان بردیانەوە!</h1>`;
+                winDisplay.innerHTML = `<i class="fas fa-user-secret"></i><h1>` + t("winner-spies") + `</h1>`;
                 playSfx('alarm');
             } else {
                 winDisplay.className = "winner-header";
-                winDisplay.innerHTML = `<i class="fas fa-flag-checkered"></i><h1>ئەنجامەکان</h1>`;
+                winDisplay.innerHTML = `<i class="fas fa-flag-checkered"></i><h1>` + t("winner-results") + `</h1>`;
             }
             $('result-word').innerText = state.currentWord || "Error";
             const spies = currentAssignments.filter(a => a.role === 'spy');
@@ -1399,6 +1410,20 @@
             $('btn-haptics').style.opacity = state.isHapticsOn ? 1 : 0.5;
             $('btn-haptics').innerHTML = state.isHapticsOn ? '<i class="fas fa-mobile-alt"></i>' : '<i class="fas fa-ban"></i>';
             if(state.isHapticsOn) triggerVibrate(50);
+        }
+
+        function hideLanguageSwitcher() {
+            const langSwitcher = document.querySelector('.language-switcher');
+            if (langSwitcher) {
+                langSwitcher.style.display = 'none';
+            }
+        }
+
+        function showLanguageSwitcher() {
+            const langSwitcher = document.querySelector('.language-switcher');
+            if (langSwitcher) {
+                langSwitcher.style.display = 'flex';
+            }
         }
 
         function toggleHelp() {
@@ -1629,7 +1654,7 @@
         });
 
         function universalLeave() {
-            if (confirm("دڵنیای دەوێت لە ژوورەکە بچیتە دەرەوە؟")) {
+            if (confirm(t("alert-leave-room"))) {
                 clearSession();
                 if (state.isOnline) {
                     if (state.isHost) {
@@ -1674,3 +1699,59 @@
                 if (installDivider) installDivider.style.display = 'none';
             }
         }
+
+
+function updateCategoriesForLang(lang) {
+    CATEGORIES["places"].label = t("cat-places");
+    CATEGORIES["places"].words = translations[lang]["cat-words-places"];
+    CATEGORIES["objects"].label = t("cat-objects");
+    CATEGORIES["objects"].words = translations[lang]["cat-words-objects"];
+    CATEGORIES["food"].label = t("cat-food");
+    CATEGORIES["food"].words = translations[lang]["cat-words-food"];
+    CATEGORIES["animals"].label = t("cat-animals");
+    CATEGORIES["animals"].words = translations[lang]["cat-words-animals"];
+    CATEGORIES["jobs"].label = t("cat-jobs");
+    CATEGORIES["jobs"].words = translations[lang]["cat-words-jobs"];
+    CATEGORIES["custom"].label = t("cat-custom");
+    setupGrid(); // refresh the UI topics grid
+}
+
+function setLanguage(lang) {
+    if (!translations[lang]) return;
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    
+    if (lang === 'en') {
+        document.documentElement.dir = 'ltr';
+    } else {
+        document.documentElement.dir = 'rtl';
+    }
+
+    // Update all i18n tags
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[currentLang][key]) {
+            el.innerHTML = translations[currentLang][key];
+        }
+    });
+
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (translations[currentLang][key]) {
+            el.setAttribute('placeholder', translations[currentLang][key]);
+        }
+    });
+
+    // Update current active buttons visually
+    document.querySelectorAll('.flag-btn').forEach(btn => btn.classList.remove('active'));
+    event && event.currentTarget && event.currentTarget.classList.add('active');
+
+    // Update topics
+    updateCategoriesForLang(lang);
+}
+
+// Initial set
+window.addEventListener('DOMContentLoaded', () => {
+    setLanguage(currentLang);
+});
+
