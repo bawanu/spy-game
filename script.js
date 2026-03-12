@@ -1646,4 +1646,31 @@
                 }, 300);
             }
         }
-    
+
+        let deferredPrompt;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installBtn = document.getElementById('install-app-btn');
+            const installDivider = document.getElementById('install-divider');
+            if (installBtn) installBtn.style.display = 'flex';
+            if (installDivider) installDivider.style.display = 'block';
+        });
+
+        async function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                deferredPrompt = null;
+                const installBtn = document.getElementById('install-app-btn');
+                const installDivider = document.getElementById('install-divider');
+                if (installBtn) installBtn.style.display = 'none';
+                if (installDivider) installDivider.style.display = 'none';
+            }
+        }
