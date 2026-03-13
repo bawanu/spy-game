@@ -26,8 +26,8 @@
     <style>
     /* Language Switcher */
     .language-switcher {
-        position: absolute;
-        top: 15px;
+        position: fixed;
+        top: calc(15px + env(safe-area-inset-top, 0px));
         left: 50%;
         transform: translateX(-50%);
         display: flex;
@@ -90,13 +90,14 @@
     <!-- Hidden audio elements container -->
     <div id="remote-audio-container" style="display:none"></div>
 
+    <div class="language-switcher">
+        <button class="flag-btn active" onclick="setLanguage('ku')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/3/35/Flag_of_Kurdistan.svg');"></button>
+        <button class="flag-btn" onclick="setLanguage('en')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg');"></button>
+        <button class="flag-btn" onclick="setLanguage('ar')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f6/Flag_of_Iraq.svg');"></button>
+        <button class="flag-btn" onclick="setLanguage('fa')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/c/ca/Flag_of_Iran.svg');"></button>
+    </div>
+
     <div class="app-wrapper">
-        <div class="language-switcher">
-            <button class="flag-btn active" onclick="setLanguage('ku')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/3/35/Flag_of_Kurdistan.svg');"></button>
-            <button class="flag-btn" onclick="setLanguage('en')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg');"></button>
-            <button class="flag-btn" onclick="setLanguage('ar')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f6/Flag_of_Iraq.svg');"></button>
-            <button class="flag-btn" onclick="setLanguage('fa')" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/c/ca/Flag_of_Iran.svg');"></button>
-        </div>
 
 
         <div id="view-mode" class="view active">
@@ -110,7 +111,7 @@
                 <button class="primary-btn secondary" onclick="transitionTo('view-lobby-entry')">
                     <span data-i18n="btn-online">یاریکردن بە ئۆنڵاین</span> <i class="fas fa-wifi"></i>
                 </button>
-                <div style="margin: 10px; color: var(--text-muted); font-size: 0.8rem;" id="install-divider" style="display: none;" data-i18n="or">--- یان ---</div>
+                <div style="margin: 10px; color: var(--text-muted); font-size: 0.8rem; display: none;" id="install-divider" data-i18n="or">--- یان ---</div>
                 <button id="install-app-btn" class="primary-btn success" style="display: none; margin-bottom: 40px;" onclick="installApp()">
                     <span data-i18n="btn-download">دابەزاندن</span> <i class="fas fa-download"></i>
                 </button>
@@ -409,6 +410,19 @@
                     <a href="https://t.me/paperui" target="_blank"><img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" width="30"/></a>
                     <a href="mailto:bawannasih17@gmail.com?subject=Feedback" target="_blank"><img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg" width="30"/></a>
                 </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ios-install-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeIOSModal()"><i class="fas fa-times"></i></button>
+            <h2 data-i18n="ios-install-title">دابەزاندن بۆ iOS</h2>
+            <div style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.8;">
+                <p data-i18n="ios-install-step1">١. لە وێبگەڕی Safari کرتە لە دوگمەی <b>Share</b> <i class="fas fa-share-square"></i> بکە.</p>
+                <p data-i18n="ios-install-step2">٢. بگەڕێ بۆ خوارەوە و کرتە لە <b>Add to Home Screen</b> <i class="fas fa-plus-square"></i> بکە.</p>
+                <p data-i18n="ios-install-step3">٣. دڵنیابە لەوەی <b>Open as Web App</b> هەڵکراوە، پاشان کرتە لە <b>Add</b> بکە.</p>
             </div>
         </div>
     </div>
