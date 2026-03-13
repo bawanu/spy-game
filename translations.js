@@ -70,6 +70,11 @@ const translations = {
         "feedback-title": "Feedback",
         "feedback-desc": "بۆ هەر ڕەخنەو تێبینیەک پەیوەندیم پێوە بکەن بە خۆشحاڵیەوە گوێتان لێ دەگرم❤️",
 
+        "ios-install-title": "دابەزاندن بۆ iOS",
+        "ios-install-step1": "١. لە وێبگەڕی Safari کرتە لە دوگمەی <b>Share</b> <i class='fas fa-share-square'></i> بکە.",
+        "ios-install-step2": "٢. بگەڕێ بۆ خوارەوە و کرتە لە <b>Add to Home Screen</b> <i class='fas fa-plus-square'></i> بکە.",
+        "ios-install-step3": "٣. دڵنیابە لەوەی <b>Open as Web App</b> هەڵکراوە، پاشان کرتە لە <b>Add</b> بکە.",
+
         // JS dynamic strings
         "toast-mic-needed": "ڕێگەپێدانی مایکرۆفۆن پێویستە",
         "toast-enter-name": "تکایە ناوەکەت بنووسە",
@@ -193,6 +198,11 @@ const translations = {
         "feedback-title": "Feedback",
         "feedback-desc": "For any feedback or notes, contact me, I'd gladly listen ❤️",
 
+        "ios-install-title": "Download for iOS",
+        "ios-install-step1": "1. Open the game in Safari browser and tap the <b>Share</b> <i class='fas fa-share-square'></i> button at the bottom.",
+        "ios-install-step2": "2. Scroll down and tap on <b>Add to Home Screen</b> <i class='fas fa-plus-square'></i>.",
+        "ios-install-step3": "3. Make sure the <b>Open as Web App</b> toggle is switched on, then click on the <b>Add</b> button.",
+
         "toast-mic-needed": "Microphone permission required",
         "toast-enter-name": "Please enter your name",
         "toast-room-used": "This code is in use",
@@ -314,6 +324,11 @@ const translations = {
         "feedback-title": "التقييم",
         "feedback-desc": "لأي ملاحظات أو تقييمات تواصل معي، سأستمع بكل سرور ❤️",
 
+        "ios-install-title": "تنزيل لنظام iOS",
+        "ios-install-step1": "١. في متصفح Safari، اضغط على زر <b>المشاركة (Share)</b> <i class='fas fa-share-square'></i>.",
+        "ios-install-step2": "٢. اسحب للأسفل واضغط على <b>إضافة إلى الشاشة الرئيسية (Add to Home Screen)</b> <i class='fas fa-plus-square'></i>.",
+        "ios-install-step3": "٣. تأكد من تفعيل <b>Open as Web App</b>، ثم اضغط على زر <b>إضافة (Add)</b>.",
+
         "toast-mic-needed": "مطلوب إذن الميكروفون",
         "toast-enter-name": "الرجاء كتابة اسمك",
         "toast-room-used": "هذا الرمز مستخدم",
@@ -434,6 +449,11 @@ const translations = {
         "help-win-desc": "شهروندان می‌برند اگر جاسوس را پیدا کنند. جاسوس می‌برد اگر زنده بماند یا کلمه را حدس بزند.",
         "feedback-title": "بازخورد",
         "feedback-desc": "برای هرگونه نقد و نظر با من تماس بگیرید، خوشحال می‌شوم بشنوم ❤️",
+
+        "ios-install-title": "دانلود برای iOS",
+        "ios-install-step1": "۱. در مرورگر Safari روی دکمه <b>اشتراک‌گذاری (Share)</b> <i class='fas fa-share-square'></i> کلیک کنید.",
+        "ios-install-step2": "۲. به پایین بروید و روی <b>افزودن به صفحه اصلی (Add to Home Screen)</b> <i class='fas fa-plus-square'></i> کلیک کنید.",
+        "ios-install-step3": "۳. مطمئن شوید گزینه <b>Open as Web App</b> روشن است، سپس روی دکمه <b>افزودن (Add)</b> کلیک کنید.",
 
         "toast-mic-needed": "اجازه دسترسی به میکروفون لازم است",
         "toast-enter-name": "لطفاً نام خود را وارد کنید",
