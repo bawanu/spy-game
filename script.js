@@ -142,6 +142,12 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             $(viewId).classList.add('active');
             playSfx('swish');
+            // Auto-manage language switcher visibility
+            if (viewId === 'view-mode') {
+                showLanguageSwitcher();
+            } else {
+                hideLanguageSwitcher();
+            }
         };
 
         function showToast(message) {
@@ -1683,7 +1689,17 @@
             if (installDivider) installDivider.style.display = 'block';
         });
 
+        const isIOS = /iPad|iPhone|iPod|Macintosh|Mac OS|Mac OS X/.test(navigator.userAgent) || /MacIntel/.test(navigator.platform);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
         async function installApp() {
+            if (isIOS) {
+                const m = document.getElementById('ios-install-modal');
+                m.style.display = 'flex';
+                requestAnimationFrame(() => m.classList.add('open'));
+                return;
+            }
+
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
@@ -1698,6 +1714,14 @@
                 if (installBtn) installBtn.style.display = 'none';
                 if (installDivider) installDivider.style.display = 'none';
             }
+        }
+
+        function closeIOSModal() {
+            const m = document.getElementById('ios-install-modal');
+            m.classList.remove('open');
+            setTimeout(() => {
+                m.style.display = 'none';
+            }, 300);
         }
 
 
@@ -1753,5 +1777,13 @@ function setLanguage(lang) {
 // Initial set
 window.addEventListener('DOMContentLoaded', () => {
     setLanguage(currentLang);
+    
+    // Explicitly show download button for iOS since beforeinstallprompt won't fire
+    if (isIOS && !isStandalone) {
+        const installBtn = document.getElementById('install-app-btn');
+        const installDivider = document.getElementById('install-divider');
+        if (installBtn) installBtn.style.display = 'flex';
+        if (installDivider) installDivider.style.display = 'block';
+    }
 });
 
