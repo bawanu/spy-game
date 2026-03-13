@@ -13,8 +13,7 @@ const URLS_TO_CACHE = [
   './translations.js',
 
   'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 
