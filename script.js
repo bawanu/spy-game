@@ -1689,7 +1689,48 @@
             if (installDivider) installDivider.style.display = 'block';
         });
 
-        const isIOS = /iPad|iPhone|iPod|Macintosh|Mac OS|Mac OS X/.test(navigator.userAgent) || /MacIntel/.test(navigator.platform);
+        function isAppleDevice() {
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = navigator.platform.toLowerCase();
+            
+            console.log('🔍 Checking Apple Device Detection:');
+            console.log('   UA includes iPhone:', ua.includes('iphone'));
+            console.log('   UA includes iPad:', ua.includes('ipad'));
+            console.log('   UA includes iPod:', ua.includes('ipod'));
+            console.log('   UA includes Macintosh:', ua.includes('macintosh'));
+            console.log('   Platform:', platform);
+            console.log('   Touch Points:', navigator.maxTouchPoints);
+            
+            if (ua.includes('iphone') || ua.includes('ipod')) {
+                console.log('   ✓ APPLE DEVICE DETECTED: iPhone/iPod');
+                return true;
+            }
+            
+            if (ua.includes('ipad')) {
+                console.log('   ✓ APPLE DEVICE DETECTED: iPad');
+                return true;
+            }
+            
+            if (ua.includes('macintosh')) {
+                console.log('   ✓ APPLE DEVICE DETECTED: Macintosh');
+                return true;
+            }
+            
+            if (platform.includes('macintel') || platform.includes('macppc') || platform === 'mac' || platform.startsWith('mac')) {
+                console.log('   ✓ APPLE DEVICE DETECTED: Mac Platform');
+                return true;
+            }
+            
+            if (ua.includes('safari') && !ua.includes('chrome') && !ua.includes('firefox') && !ua.includes('edge') && ua.includes('webkit')) {
+                console.log('   ✓ APPLE DEVICE DETECTED: Safari + WebKit');
+                return true;
+            }
+            
+            console.log('   ✗ NOT an Apple device');
+            return false;
+        }
+
+        const isIOS = isAppleDevice();
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
         async function installApp() {
@@ -1723,6 +1764,26 @@
                 m.style.display = 'none';
             }, 300);
         }
+        
+        function showAppleDownloadButton() {
+            if (isIOS && !isStandalone) {
+                const installBtn = document.getElementById('install-app-btn');
+                const installDivider = document.getElementById('install-divider');
+                
+                if (installBtn) {
+                    installBtn.style.setProperty('display', 'flex', 'important');
+                    installBtn.style.setProperty('visibility', 'visible', 'important');
+                    console.log('✓ Download button element found and shown');
+                } else {
+                    console.warn('⚠️ Install button element not found in DOM');
+                }
+                
+                if (installDivider) {
+                    installDivider.style.setProperty('display', 'block', 'important');
+                    installDivider.style.setProperty('visibility', 'visible', 'important');
+                }
+            }
+        }
 
 
 function updateCategoriesForLang(lang) {
@@ -1737,7 +1798,7 @@ function updateCategoriesForLang(lang) {
     CATEGORIES["jobs"].label = t("cat-jobs");
     CATEGORIES["jobs"].words = translations[lang]["cat-words-jobs"];
     CATEGORIES["custom"].label = t("cat-custom");
-    setupGrid(); // refresh the UI topics grid
+    setupGrid(); 
 }
 
 function setLanguage(lang) {
@@ -1751,7 +1812,6 @@ function setLanguage(lang) {
         document.documentElement.dir = 'rtl';
     }
 
-    // Update all i18n tags
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if (translations[currentLang][key]) {
@@ -1766,24 +1826,33 @@ function setLanguage(lang) {
         }
     });
 
-    // Update current active buttons visually
     document.querySelectorAll('.flag-btn').forEach(btn => btn.classList.remove('active'));
     event && event.currentTarget && event.currentTarget.classList.add('active');
 
-    // Update topics
     updateCategoriesForLang(lang);
 }
 
-// Initial set
 window.addEventListener('DOMContentLoaded', () => {
     setLanguage(currentLang);
     
-    // Explicitly show download button for iOS since beforeinstallprompt won't fire
-    if (isIOS && !isStandalone) {
-        const installBtn = document.getElementById('install-app-btn');
-        const installDivider = document.getElementById('install-divider');
-        if (installBtn) installBtn.style.display = 'flex';
-        if (installDivider) installDivider.style.display = 'block';
-    }
+    console.log('📱 Device Detection at DOMContentLoaded:');
+    console.log('   Is Apple Device:', isIOS);
+    console.log('   Is Standalone PWA:', isStandalone);
+    
+    showAppleDownloadButton();
+    
+    setTimeout(() => {
+        showAppleDownloadButton();
+    }, 100);
 });
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('📱 DOM Content Loaded - Checking Apple device button');
+        showAppleDownloadButton();
+    });
+} else {
+    console.log('📱 Document already loaded - Setting up Apple device button');
+    showAppleDownloadButton();
+}
 
