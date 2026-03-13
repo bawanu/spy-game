@@ -10,7 +10,7 @@ const URLS_TO_CACHE = [
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './translations.js'
+  './translations.js',
 
   'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
