@@ -71,9 +71,9 @@ const translations = {
         "feedback-desc": "بۆ هەر ڕەخنەو تێبینیەک پەیوەندیم پێوە بکەن بە خۆشحاڵیەوە گوێتان لێ دەگرم❤️",
 
         "ios-install-title": "دابەزاندن بۆ iOS",
-        "ios-install-step1": "١. لە وێبگەڕی Safari کرتە لە دوگمەی <b>Share</b> <i class='fas fa-share-square'></i> بکە.",
-        "ios-install-step2": "٢. بگەڕێ بۆ خوارەوە و کرتە لە <b>Add to Home Screen</b> <i class='fas fa-plus-square'></i> بکە.",
-        "ios-install-step3": "٣. دڵنیابە لەوەی <b>Open as Web App</b> هەڵکراوە، پاشان کرتە لە <b>Add</b> بکە.",
+        "ios-install-step1": "١. لە وێبگەڕی Safari کلیک لە دوگمەی <b>Share</b> <i class='fas fa-share-square'></i> بکە.",
+        "ios-install-step2": "٢. بگەڕێ بۆ خوارەوە و کلیک لە <b>Add to Home Screen</b> <i class='fas fa-plus-square'></i> بکە.",
+        "ios-install-step3": "٣. دڵنیابە لەوەی <b>Open as Web App</b> هەڵکراوە، پاشان کلیک لە <b>Add</b> بکە.",
 
         // JS dynamic strings
         "toast-mic-needed": "ڕێگەپێدانی مایکرۆفۆن پێویستە",
