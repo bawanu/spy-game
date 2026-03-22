@@ -56,6 +56,8 @@
         let heartbeatInterval = null;
         let lastPong = {};
         let audioMonitorInt = null;
+        let audioAnalyserNode = null;
+        let audioSourceNode = null;
         let state = {
             players: [],
             playerStatus: {},
@@ -217,7 +219,9 @@
                 localStream.getTracks().forEach(track => track.stop());
                 localStream = null;
             }
-            if (audioMonitorInt) clearInterval(audioMonitorInt);
+            if (audioMonitorInt) { clearInterval(audioMonitorInt); audioMonitorInt = null; }
+            if (audioSourceNode) { try { audioSourceNode.disconnect(); } catch(e){} audioSourceNode = null; }
+            if (audioAnalyserNode) { try { audioAnalyserNode.disconnect(); } catch(e){} audioAnalyserNode = null; }
             isMicOn = false;
             updateMicUI(false);
             handleTalkingStatus(state.myName, false);
@@ -241,11 +245,13 @@
 
         function startAudioMonitoring(stream) {
             try {
-                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const context = getAudioCtx(); // reuse singleton — avoids leaking a new AudioContext on every mic toggle
                 const source = context.createMediaStreamSource(stream);
                 const analyser = context.createAnalyser();
                 analyser.fftSize = 256;
                 source.connect(analyser);
+                audioSourceNode = source;   // store ref for clean disconnect on stopMic
+                audioAnalyserNode = analyser;
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
                 let lastStatus = false;
                 let silenceCounter = 0;
@@ -273,13 +279,15 @@
                         handleTalkingStatus(state.myName, isTalking);
                         broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: isTalking });
                     }
-                }, 150);
+                }, 300); // was 150ms — 300ms is plenty for voice detection and halves CPU polling
             } catch(e) {}
         }
 
         function handleTalkingStatus(name, status) {
             state.talkingStatus[name] = status;
-            renderLobbyPlayers();
+            // Surgically toggle the class on just this player's tag — don't rebuild the whole list
+            const lobbyTag = document.querySelector(`#lobby-players-list [data-player="${name}"]`);
+            if (lobbyTag) lobbyTag.classList.toggle('talking-indicator', status);
             updateSuspectGlows();
         }
 
@@ -889,7 +897,7 @@
                 const isOnline = state.playerStatus[p] === 'online';
                 const statusClass = isOnline ? 'status-online' : 'status-offline';
                 const talkingClass = state.talkingStatus[p] ? 'talking-indicator' : '';
-                let html = `<div class="tag ${talkingClass}">
+                let html = `<div class="tag ${talkingClass}" data-player="${p}">
                     <span class="status-dot ${statusClass}"></span>
                     ${p} ${p === state.myName ? '(تۆ)' : ''}`;
                 if(state.isHost && p !== state.myName) {
@@ -1801,7 +1809,7 @@ function updateCategoriesForLang(lang) {
     setupGrid(); 
 }
 
-function setLanguage(lang) {
+function setLanguage(lang, triggerBtn) {
     if (!translations[lang]) return;
     currentLang = lang;
     document.documentElement.lang = lang;
@@ -1827,13 +1835,13 @@ function setLanguage(lang) {
     });
 
     document.querySelectorAll('.flag-btn').forEach(btn => btn.classList.remove('active'));
-    event && event.currentTarget && event.currentTarget.classList.add('active');
+    if (triggerBtn) triggerBtn.classList.add('active');
 
     updateCategoriesForLang(lang);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    setLanguage(currentLang);
+    setLanguage(currentLang, document.querySelector('.flag-btn[data-lang="ku"]') || document.querySelector('.flag-btn'));
     
     console.log('📱 Device Detection at DOMContentLoaded:');
     console.log('   Is Apple Device:', isIOS);
