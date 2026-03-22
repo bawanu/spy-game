@@ -1,4 +1,4 @@
-const CATEGORIES = {
+        const CATEGORIES = {
             "places": {
                 label: "شوێن",
                 icon: "fa-map-marker-alt",
@@ -27,8 +27,34 @@ const CATEGORIES = {
             "custom": { label: "تایبەت", icon: "fa-pen-fancy", words: [] }
         };
 
-        const SERVER_URL = 'http://spy-game.eu-4.evennode.com';
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' },
+                    {
+                        urls: "turn:openrelay.metered.ca:80",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ],
+                iceCandidatePoolSize: 0
+            }
+        };
 
+        let heartbeatInterval = null;
+        let lastPong = {};
         let audioMonitorInt = null;
         let audioAnalyserNode = null;
         let audioSourceNode = null;
@@ -48,143 +74,66 @@ const CATEGORIES = {
             onlineVotes: {},
             mySelectedSuspect: null,
             isRoomLocked: false,
-            gamePhase: 'LOBBY'
+            gamePhase: 'LOBBY',
+            peerMap: {}
         };
 
         let isChatOpen = false;
         let unreadCount = 0;
+        let isMicOn = false;
+        let localStream = null;
+        let myBroadcastCalls = {}; // Track calls I started
+        let incomingMediaCalls = {}; // Track calls started by others to me
 
-        // ══════════════════════════════════════════════════════════════════════
-        // Socket.io Transport — replaces raw WebSocket
-        // ══════════════════════════════════════════════════════════════════════
-        let socket = null;
-        let wsReconnectTimer = null;
-        let _pendingRestore = false;
-
-        function wsConnect(onOpen) {
-            if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
-            socket = io(SERVER_URL, {
-                transports: ['polling'],
-                reconnection: false
-            });
-
-            socket.on('connect', () => {
-                if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
-                onOpen && onOpen();
-            });
-
-            socket.on('message', (msg) => {
-                handleClientData(msg);
-            });
-
-            socket.on('FROM_CLIENT', ({ sender, payload }) => {
-                handleHostData(payload, sender);
-            });
-
-            socket.on('PLAYER_DISCONNECTED', ({ name }) => {
-                handlePlayerDisconnected(name);
-            });
-
-            socket.on('ROOM_CREATED', ({ code }) => {
-                onRoomCreated(code);
-            });
-
-            socket.on('ERROR', ({ error }) => {
-                handleServerError(error);
-            });
-
-            socket.on('disconnect', () => {
-                if (!state.isOnline) return;
-                if (state.isHost) {
-                    showToast(t("toast-reconnecting"));
-                    wsReconnectTimer = setTimeout(() => createOnlineRoom(true), 2500);
-                } else {
-                    $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
-                    showToast(t("toast-reconnecting"));
-                    const code = sessionStorage.getItem('spy_room_code');
-                    const name = sessionStorage.getItem('spy_name');
-                    if (code && name) {
-                        wsReconnectTimer = setTimeout(() => joinOnlineRoom(true), 2500);
-                    }
+        function startHostHeartbeat() {
+            if(heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(() => {
+                if(!state.isOnline || !state.isHost) {
+                    clearInterval(heartbeatInterval);
+                    return;
                 }
-            });
-
-            socket.on('connect_error', () => {});
-        }
-
-        function wsSend(event, data) {
-            if (socket && socket.connected) {
-                try { socket.emit(event, data); } catch(e) {}
-            }
-        }
-
-        // Host: broadcast to all clients via server
-        function broadcast(payload) {
-            wsSend('TO_ALL', { payload });
-        }
-
-        // Host: send to one specific client by name via server
-        function sendToPlayer(name, payload) {
-            wsSend('TO_ONE', { name, payload });
-        }
-
-        // Client: send to host via server
-        function sendToHost(payload) {
-            wsSend('TO_HOST', { payload });
-        }
-
-        function handleServerError(error) {
-            if (error === 'room_exists') {
-                if (_pendingRestore) {
-                    setTimeout(() => createOnlineRoom(true), 1500);
-                } else {
-                    showToast(t("toast-room-used"));
-                    clearSession();
+                
+                // If the peer is disconnected from signaling server, try to reconnect
+                if (peer && peer.disconnected) {
+                    console.log("Peer signaling disconnected. Reconnecting...");
+                    peer.reconnect();
                 }
-            } else if (error === 'room_not_found') {
-                showToast(t("toast-room-not-found"));
-                clearSession();
-                exitToMainMenu();
-            } else {
-                showToast(t("toast-conn-error") + " " + error);
-            }
-        }
 
-        function handlePlayerDisconnected(name) {
-            if (!name) return;
-            state.playerStatus[name] = 'offline';
-            saveHostGameState();
-            renderLobbyPlayers();
-            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
-        }
-
-        function onRoomCreated(code) {
-            $('display-room-code').innerText = code;
-            state.playerStatus[state.myName] = 'online';
-            document.querySelectorAll('.chat-trigger').forEach(b => b.style.display = 'grid');
-            document.querySelectorAll('.mic-trigger').forEach(b => b.style.display = 'none');
-            if (_pendingRestore) {
-                restoreHostGameState();
+                broadcast({ type: 'PING' });
+                const now = Date.now();
+                let changed = false;
                 state.players.forEach(p => {
-                    if (p !== state.myName) state.playerStatus[p] = 'offline';
+                    if(p === state.myName) return;
+                    const lastSeen = lastPong[p] || now;
+                    const isActuallyOnline = (now - lastSeen) < 8000;
+                    if(isActuallyOnline && state.playerStatus[p] !== 'online') {
+                        state.playerStatus[p] = 'online';
+                        changed = true;
+                    } else if(!isActuallyOnline && state.playerStatus[p] !== 'offline') {
+                        state.playerStatus[p] = 'offline';
+                        changed = true;
+                    }
                 });
-                renderLobbyPlayers();
-                showToast(t("toast-back-to-room"));
-            } else {
-                transitionTo('view-lobby-waiting');
-                saveHostGameState();
-            }
-            renderLobbyPlayers();
-            $('host-controls').style.display = 'flex';
-            $('client-wait-msg').style.display = 'none';
-            updateLockBtnUI();
+                if(changed) {
+                    renderLobbyPlayers();
+                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
+                }
+            }, 3000); // slowed from 2000ms — reduces unnecessary DOM re-renders
         }
 
         document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === 'visible' && state.isOnline) {
-                if (!socket || !socket.connected) {
-                    if (state.isHost) createOnlineRoom(true);
-                    else joinOnlineRoom(true);
+            if (document.visibilityState === 'visible') {
+                if (state.isOnline && !state.isHost) {
+                    if (peer && peer.disconnected) {
+                        peer.reconnect();
+                    }
+                    if (!myConn || !myConn.open) {
+                        const code = sessionStorage.getItem('spy_room_code');
+                        const name = sessionStorage.getItem('spy_name');
+                        if (code && name) {
+                             joinOnlineRoom(true);
+                        }
+                    }
                 }
             }
         });
@@ -222,7 +171,211 @@ const CATEGORIES = {
             }, 3000);
         }
 
-        // Voice chat removed — mic buttons are hidden in online mode
+        async function toggleMic() {
+            if (!isMicOn) {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    isMicOn = true;
+                    updateMicUI(true);
+                    startAudioMonitoring(localStream);
+                    callAllPeers();
+                } catch (err) {
+                    showToast(t("toast-mic-needed"));
+                }
+            } else {
+                stopMic();
+            }
+        }
+
+        function callAllPeers() {
+            if (!localStream) return;
+            if (state.isHost) {
+                // Host calls all connected clients
+                hostConnections.forEach(conn => {
+                    if (conn.peer) initiateBroadcastCall(conn.peer);
+                });
+            } else {
+                // Client calls host
+                if (myConn && myConn.peer) initiateBroadcastCall(myConn.peer);
+                // Client also calls all other clients via peerMap
+                if (state.peerMap) {
+                    Object.entries(state.peerMap).forEach(([name, peerId]) => {
+                        if (name !== state.myName && peerId !== (myConn && myConn.peer)) {
+                            initiateBroadcastCall(peerId);
+                        }
+                    });
+                }
+            }
+        }
+
+        function stopMic() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (audioMonitorInt) { clearInterval(audioMonitorInt); audioMonitorInt = null; }
+            if (audioSourceNode) { try { audioSourceNode.disconnect(); } catch(e){} audioSourceNode = null; }
+            if (audioAnalyserNode) { try { audioAnalyserNode.disconnect(); } catch(e){} audioAnalyserNode = null; }
+            isMicOn = false;
+            updateMicUI(false);
+            handleTalkingStatus(state.myName, false);
+            broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: false });
+            
+            Object.values(myBroadcastCalls).forEach(call => {
+                if (call.open) call.close();
+            });
+            myBroadcastCalls = {};
+        }
+
+        function updateMicUI(on) {
+            document.querySelectorAll('.mic-trigger i').forEach(icon => {
+                icon.className = on ? "fas fa-microphone" : "fas fa-microphone-slash";
+            });
+            document.querySelectorAll('.mic-trigger').forEach(btn => {
+                if(on) btn.classList.add('mic-on');
+                else btn.classList.remove('mic-on');
+            });
+        }
+
+        function startAudioMonitoring(stream) {
+            try {
+                const context = getAudioCtx(); // reuse singleton — avoids leaking a new AudioContext on every mic toggle
+                const source = context.createMediaStreamSource(stream);
+                const analyser = context.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                audioSourceNode = source;   // store ref for clean disconnect on stopMic
+                audioAnalyserNode = analyser;
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                let lastStatus = false;
+                let silenceCounter = 0;
+                audioMonitorInt = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+                    let average = sum / dataArray.length;
+                    
+                    let isTalking = false;
+                    if(average > 25) {
+                        isTalking = true;
+                        silenceCounter = 0;
+                    } else {
+                        silenceCounter++;
+                        if(silenceCounter < 5) {
+                            isTalking = lastStatus;
+                        } else {
+                            isTalking = false;
+                        }
+                    }
+
+                    if(isTalking !== lastStatus) {
+                        lastStatus = isTalking;
+                        handleTalkingStatus(state.myName, isTalking);
+                        broadcast({ type: 'TALKING_STATUS', sender: state.myName, status: isTalking });
+                    }
+                }, 300); // was 150ms — 300ms is plenty for voice detection and halves CPU polling
+            } catch(e) {}
+        }
+
+        function handleTalkingStatus(name, status) {
+            state.talkingStatus[name] = status;
+            // Surgically toggle the class on just this player's tag — don't rebuild the whole list
+            const lobbyTag = document.querySelector(`#lobby-players-list [data-player="${name}"]`);
+            if (lobbyTag) lobbyTag.classList.toggle('talking-indicator', status);
+            updateSuspectGlows();
+        }
+
+        function updateSuspectGlows() {
+            document.querySelectorAll('.suspect-card').forEach(card => {
+                const nameDiv = card.querySelector('div:last-child');
+                if(!nameDiv) return;
+                const name = nameDiv.innerText;
+                if(state.talkingStatus[name]) card.classList.add('talking-indicator');
+                else card.classList.remove('talking-indicator');
+            });
+        }
+
+        function initiateBroadcastCall(peerId) {
+            if (!localStream) return;
+            // Prevent duplicate calls to the same peer (causes echo)
+            if (myBroadcastCalls[peerId]) return;
+            try {
+                const call = peer.call(peerId, localStream);
+                if (!call) return;
+                myBroadcastCalls[peerId] = call;
+                call.on('stream', (remoteStream) => {
+                    attachRemoteAudio(call.peer, remoteStream);
+                });
+                call.on('close', () => {
+                    removeRemoteAudio(peerId);
+                    delete myBroadcastCalls[peerId];
+                });
+                call.on('error', () => {
+                    removeRemoteAudio(peerId);
+                    delete myBroadcastCalls[peerId];
+                });
+            } catch(e) {
+                console.log('Call initiation failed:', e);
+            }
+        }
+
+        function handleIncomingCall(call) {
+            // Prevent duplicate incoming from same peer (causes echo)
+            if (incomingMediaCalls[call.peer]) {
+                try { incomingMediaCalls[call.peer].close(); } catch(e) {}
+                removeRemoteAudio(call.peer);
+            }
+            incomingMediaCalls[call.peer] = call;
+            // Answer with local stream if mic is on, otherwise receive-only
+            if (localStream) {
+                call.answer(localStream);
+            } else {
+                call.answer();
+            }
+            call.on('stream', (remoteStream) => {
+                attachRemoteAudio(call.peer, remoteStream);
+            });
+            call.on('close', () => {
+                removeRemoteAudio(call.peer);
+                delete incomingMediaCalls[call.peer];
+            });
+            call.on('error', () => {
+                removeRemoteAudio(call.peer);
+                delete incomingMediaCalls[call.peer];
+            });
+        }
+
+        function attachRemoteAudio(peerId, remoteStream) {
+            // Don't play our own stream back to ourselves
+            if (peer && peerId === peer.id) return;
+            let audioId = `audio-${peerId}`;
+            let audio = $(audioId);
+            if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = audioId;
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.setAttribute('playsinline', '');
+                audio.style.display = 'none';
+                $('remote-audio-container').appendChild(audio);
+            }
+            audio.srcObject = remoteStream;
+            audio.play().catch(e => console.log('Audio play blocked until interaction'));
+        }
+
+        function removeRemoteAudio(peerId) {
+            const audio = $(`audio-${peerId}`);
+            if (audio) {
+                audio.srcObject = null;
+                audio.remove();
+            }
+        }
 
         function toggleChat() {
             isChatOpen = !isChatOpen;
@@ -269,12 +422,19 @@ const CATEGORIES = {
             const input = $('chat-input');
             const text = input.value.trim();
             if (!text || !state.isOnline) return;
-            const messageData = { type: 'CHAT', sender: state.myName, text };
-            addMessageToUI(state.myName, text, 'sent');
+            const messageData = {
+                type: 'CHAT',
+                sender: state.myName,
+                text: text
+            };
             if (state.isHost) {
+                addMessageToUI(state.myName, text, 'sent');
                 broadcast(messageData);
             } else {
-                sendToHost(messageData);
+                if (myConn && myConn.open) {
+                    myConn.send(messageData);
+                    addMessageToUI(state.myName, text, 'sent');
+                }
             }
             input.value = '';
         }
@@ -319,8 +479,15 @@ const CATEGORIES = {
 
         function performExitCleanup() {
             showLanguageSwitcher();
-            if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
-            if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
+            if(heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+            lastPong = {};
+            if(peer) {
+                peer.destroy();
+                peer = null;
+            }
+            hostConnections = [];
+            myConn = null;
             state.players = [];
             state.playerStatus = {};
             state.talkingStatus = {};
@@ -334,31 +501,83 @@ const CATEGORIES = {
             $('chat-messages').innerHTML = '';
             unreadCount = 0;
             updateChatBadge();
+            stopMic();
+            $('remote-audio-container').innerHTML = '';
             clearSession();
             renderTags();
             transitionTo('view-mode');
         }
 
+        let peer = null;
+        let myConn = null;
+        let hostConnections = [];
+        let reconnectInterval = null;
+
         function createOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
             let customCode = $('room-code-input').value.trim();
-            if (!name) return showToast(t("toast-enter-name"));
-            if (!customCode) {
+            if(!name) return showToast(t("toast-enter-name"));
+            if(!customCode) {
                 customCode = Math.floor(1000 + Math.random() * 9000).toString();
                 $('room-code-input').value = customCode;
             }
             state.myName = name;
             state.isOnline = true;
             state.isHost = true;
-            _pendingRestore = isRestore;
-            if (!isRestore) {
+            if(!isRestore) {
                 state.players = [name];
                 state.playerStatus = { [name]: 'online' };
                 state.gamePhase = 'LOBBY';
             }
             saveSession(true, name, customCode);
-            wsConnect(() => {
-                wsSend('CREATE_ROOM', { code: customCode, name });
+            if(peer) peer.destroy();
+            peer = new Peer("bawan-spy-prod-" + customCode, PEER_CONFIG);
+            peer.on('open', (id) => {
+                $('display-room-code').innerText = customCode;
+                state.playerStatus[state.myName] = 'online';
+                document.querySelectorAll('.chat-trigger').forEach(b => b.style.display = 'grid');
+                document.querySelectorAll('.mic-trigger').forEach(b => b.style.display = 'grid');
+                if(isRestore) {
+                    restoreHostGameState();
+                    state.players.forEach(p => {
+                        if(p !== state.myName) state.playerStatus[p] = 'offline';
+                    });
+                    renderLobbyPlayers();
+                } else {
+                    transitionTo('view-lobby-waiting');
+                    saveHostGameState();
+                }
+                renderLobbyPlayers();
+                $('host-controls').style.display = 'flex';
+                $('client-wait-msg').style.display = 'none';
+                updateLockBtnUI();
+                if(isRestore) showToast(t("toast-back-to-room"));
+                startHostHeartbeat();
+            });
+            peer.on('call', (call) => handleIncomingCall(call));
+            peer.on('error', (err) => {
+                if(err.type === 'unavailable-id') {
+                    if(isRestore) {
+                         setTimeout(() => createOnlineRoom(true), 1500);
+                    } else {
+                         showToast(t("toast-room-used"));
+                         clearSession();
+                    }
+                } else {
+                    showToast(t("toast-conn-error") + " " + err.type);
+                }
+            });
+            peer.on('connection', (conn) => {
+                hostConnections.push(conn);
+                conn.on('data', (data) => handleHostData(data, conn));
+                conn.on('close', () => {
+                    hostConnections = hostConnections.filter(c => c !== conn);
+                    if(conn.playerName) {
+                        state.playerStatus[conn.playerName] = 'offline';
+                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
+                        renderLobbyPlayers();
+                    }
+                });
             });
         }
 
@@ -383,66 +602,125 @@ const CATEGORIES = {
         function joinOnlineRoom(isRestore = false) {
             const name = $('my-name-input').value.trim();
             const code = $('room-code-input').value.trim();
-            if (!name || !code) return showToast(t("toast-enter-name-code"));
+            if(!name || !code) return showToast(t("toast-enter-name-code"));
             saveSession(false, name, code);
             state.myName = name;
             state.isOnline = true;
             state.isHost = false;
-            _pendingRestore = isRestore;
-            if (!isRestore) showToast(t("toast-connecting"));
-            wsConnect(() => {
-                wsSend('JOIN_ROOM', { code, name, isRejoining: isRestore });
+            
+            showToast(t("toast-connecting"));
+            
+            if(peer) peer.destroy();
+            peer = new Peer(null, PEER_CONFIG);
+            peer.on('open', (id) => {
+                setTimeout(() => {
+                    connectToHost(code, name, isRestore);
+                }, 800);
+            });
+            peer.on('call', (call) => handleIncomingCall(call));
+            peer.on('error', (err) => {
+                if(err.type === 'peer-unavailable') {
+                    showToast(t("toast-room-not-found"));
+                } else {
+                    showToast(t("toast-error-occured") + " " + err.type);
+                }
+                clearSession();
+                exitToMainMenu();
+            });
+        }
+
+        function connectToHost(code, name, isRestore) {
+            if(reconnectInterval) clearInterval(reconnectInterval);
+            const conn = peer.connect("bawan-spy-prod-" + code, {
+                reliable: true
+            });
+            conn.on('open', () => {
+                myConn = conn;
+                if(reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
                 document.querySelectorAll('.chat-trigger').forEach(b => b.style.display = 'grid');
-                document.querySelectorAll('.mic-trigger').forEach(b => b.style.display = 'none');
-                const activeId = document.querySelector('.view.active')?.id || '';
-                if (!activeId.includes('view-cards') && !activeId.includes('view-timer') && !activeId.includes('view-results')) {
+                document.querySelectorAll('.mic-trigger').forEach(b => b.style.display = 'grid');
+                conn.send({ type: 'JOIN', name: name, isRejoining: isRestore });
+                if(!document.querySelector('.view.active').id.includes('view-cards') &&
+                   !document.querySelector('.view.active').id.includes('view-timer') &&
+                   !document.querySelector('.view.active').id.includes('view-results')) {
                     transitionTo('view-lobby-waiting');
                 }
                 $('display-room-code').innerText = code;
                 $('host-controls').style.display = 'none';
                 $('client-wait-msg').style.display = 'block';
                 $('client-wait-msg').innerText = "چاوەڕێی سێرڤەر بە یاریەکە دەستپێبکات...";
-                if (isRestore) showToast(t("toast-back-to-game"));
+                if(isRestore) showToast(t("toast-back-to-game"));
+            });
+            conn.on('data', (data) => handleClientData(data));
+            conn.on('close', () => {
+                myConn = null;
+                $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
+                showToast(t("toast-reconnecting"));
+                if(!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        connectToHost(code, name, true);
+                    }, 2000);
+                }
             });
         }
 
-        function handleHostData(data, senderName) {
+        function handleHostData(data, conn) {
+            if (data.type === 'PONG') {
+                if (conn.playerName) {
+                    lastPong[conn.playerName] = Date.now();
+                    if (state.playerStatus[conn.playerName] === 'offline') {
+                        state.playerStatus[conn.playerName] = 'online';
+                        renderLobbyPlayers();
+                        broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                    }
+                }
+                return;
+            }
+            if (conn.playerName) {
+                lastPong[conn.playerName] = Date.now();
+            }
             if (data.type === 'CHAT') {
-                broadcast(data);
+                hostConnections.forEach(c => {
+                    if (c !== conn) c.send(data);
+                });
                 addMessageToUI(data.sender, data.text, 'received');
             }
             else if (data.type === 'TALKING_STATUS') {
                 handleTalkingStatus(data.sender, data.status);
-                broadcast(data);
+                hostConnections.forEach(c => {
+                    if (c !== conn) c.send(data);
+                });
             }
             else if (data.type === 'JOIN') {
                 let finalName = data.name;
                 let counter = 1;
-                if (!data.isRejoining || !state.players.includes(data.name)) {
-                    while (state.players.includes(finalName)) {
-                        finalName = `${data.name}_${counter}`;
-                        counter++;
+                if (!data.isRejoining || (data.isRejoining && !state.players.includes(data.name))) {
+                    while(state.players.includes(finalName)) {
+                         finalName = `${data.name}_${counter}`;
+                         counter++;
                     }
                 }
                 if (finalName !== data.name) {
-                    sendToPlayer(senderName, { type: 'NAME_CHANGED', newName: finalName });
-                    // Tell server to update its internal name mapping too
-                    wsSend('RENAME_PLAYER', { oldName: senderName, newName: finalName });
+                    conn.send({ type: 'NAME_CHANGED', newName: finalName });
                 }
+                conn.playerName = finalName;
                 state.playerStatus[finalName] = 'online';
                 const isKnown = state.players.includes(finalName);
                 if (state.isRoomLocked && !isKnown) {
-                    sendToPlayer(finalName, { type: 'ROOM_LOCKED_ERROR' });
+                    conn.send({ type: 'ROOM_LOCKED_ERROR' });
+                    setTimeout(() => conn.close(), 500);
                     return;
                 }
-                if (!isKnown) state.players.push(finalName);
+                if (!isKnown) {
+                    state.players.push(finalName);
+                }
                 saveHostGameState();
                 renderLobbyPlayers();
-                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
                 if (state.gamePhase !== 'LOBBY' && state.gamePhase !== 'SETUP') {
                     const playerObj = state.assignments.find(a => a.name === finalName);
-                    if (playerObj) {
-                        sendToPlayer(finalName, {
+                    if(playerObj) {
+                        conn.send({
                             type: 'RESTORE_GAME',
                             phase: state.gamePhase,
                             roleObj: playerObj,
@@ -463,65 +741,91 @@ const CATEGORIES = {
                 state.flippedCount++;
                 if (state.flippedCount >= state.players.length) {
                     determineStarter();
-                    broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
+                    const starter = $('starter-name-display').innerText;
+                    broadcast({ type: 'SHOW_STARTER', starterName: starter });
                 }
             }
             else if (data.type === 'LEAVE_GAME') {
-                state.playerStatus[senderName] = 'offline';
-                saveHostGameState();
-                renderLobbyPlayers();
-                broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+                if (conn.playerName) {
+                    state.playerStatus[conn.playerName] = 'offline';
+                    saveHostGameState();
+                    renderLobbyPlayers();
+                    broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
+                }
+                conn.close();
             }
             else if (data.type === 'SUBMIT_VOTE') {
                 if (!state.onlineVotes) state.onlineVotes = {};
                 state.onlineVotes[data.voter] = data.suspect;
                 saveHostGameState();
                 const voteCount = Object.keys(state.onlineVotes).length;
-                broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: state.players.length });
-                if (voteCount >= state.players.length) processVotingResult();
+                const totalPlayers = state.players.length;
+                broadcast({ type: 'VOTE_PROGRESS', count: voteCount, total: totalPlayers });
+                if (voteCount >= totalPlayers) {
+                    processVotingResult();
+                }
             }
         }
 
+        function buildPeerMap() {
+            const map = {};
+            hostConnections.forEach(c => {
+                if (c.playerName && c.peer) {
+                    map[c.playerName] = c.peer;
+                }
+            });
+            return map;
+        }
+
         function handleClientData(data) {
+            if(data.type === 'PING') {
+                if(myConn && myConn.open) {
+                    myConn.send({ type: 'PONG' });
+                }
+                return;
+            }
             if (data.type === 'CHAT') {
                 addMessageToUI(data.sender, data.text, 'received');
             }
             else if (data.type === 'TALKING_STATUS') {
                 handleTalkingStatus(data.sender, data.status);
             }
-            else if (data.type === 'NAME_CHANGED') {
+            else if(data.type === 'NAME_CHANGED') {
                 state.myName = data.newName;
                 $('my-name-input').value = data.newName;
                 saveSession(false, state.myName, $('room-code-input').value);
                 showToast(t("toast-name-changed") + data.newName + t("toast-name-changed-suffix"));
             }
-            else if (data.type === 'UPDATE_LOBBY') {
+            else if(data.type === 'UPDATE_LOBBY') {
                 state.players = data.players;
                 state.playerStatus = data.statuses || {};
+                if(data.peerMap) state.peerMap = data.peerMap;
                 renderLobbyPlayers();
+                // If mic is on, call any new peers we don't have calls to yet
+                if(isMicOn && localStream) callAllPeers();
             }
-            else if (data.type === 'KICKED') {
+            else if(data.type === 'KICKED') {
                 showToast(t("toast-kicked"));
                 clearSession();
                 setTimeout(() => performExitCleanup(), 1000);
             }
-            else if (data.type === 'ROOM_LOCKED_ERROR') {
+            else if(data.type === 'ROOM_LOCKED_ERROR') {
                 showToast(t("toast-room-locked-err"));
                 clearSession();
                 setTimeout(() => performExitCleanup(), 1000);
             }
-            else if (data.type === 'START_GAME') {
+            else if(data.type === 'START_GAME') {
                 hideLanguageSwitcher();
                 loadGameData(data);
                 transitionTo('view-cards');
                 updateOnlineCardView();
             }
-            else if (data.type === 'RESTORE_GAME') {
+            else if(data.type === 'RESTORE_GAME') {
                 hideLanguageSwitcher();
-                if (data.players) state.players = data.players;
-                if (data.statuses) state.playerStatus = data.statuses;
+                if(data.players) state.players = data.players;
+                if(data.statuses) state.playerStatus = data.statuses;
                 loadGameData(data);
-                if (data.phase === 'CARDS') {
+                if(data.phase === 'CARDS') {
                     transitionTo('view-cards');
                     updateOnlineCardView();
                 } else if (data.phase === 'TIMER') {
@@ -536,37 +840,37 @@ const CATEGORIES = {
                     $('voting-status').innerText = t("status-voting") + ` (${vCount} / ${state.players.length})`;
                 }
             }
-            else if (data.type === 'SHOW_STARTER') {
+            else if(data.type === 'SHOW_STARTER') {
                 $('starter-name-display').innerText = data.starterName;
                 $('waiting-others-msg').style.display = 'none';
                 transitionTo('view-starter');
                 playSfx('victory');
             }
-            else if (data.type === 'SYNC_TIMER') {
+            else if(data.type === 'SYNC_TIMER') {
                 state.timeLeft = data.timeLeft;
                 state.timerRunning = data.running;
-                if (!document.getElementById('view-timer').classList.contains('active')) {
-                    transitionTo('view-timer');
-                    $('host-timer-controls').style.display = 'none';
-                    $('client-timer-msg').style.display = 'block';
+                if(!document.getElementById('view-timer').classList.contains('active')) {
+                        transitionTo('view-timer');
+                        $('host-timer-controls').style.display = 'none';
+                        $('client-timer-msg').style.display = 'block';
                 }
                 updateTimerDisplay(data.totalTime);
             }
-            else if (data.type === 'GAME_OVER') {
-                endGame();
+            else if(data.type === 'GAME_OVER') {
+                    endGame();
             }
-            else if (data.type === 'VOTE_PROGRESS') {
+            else if(data.type === 'VOTE_PROGRESS') {
                 $('voting-status').innerText = t("status-voting") + ` (${data.count} / ${data.total})`;
             }
-            else if (data.type === 'VOTE_RESULT') {
+            else if(data.type === 'VOTE_RESULT') {
                 revealEverything(data.winner, data.assignments);
             }
-            else if (data.type === 'RETURN_TO_LOBBY') {
+            else if(data.type === 'RETURN_TO_LOBBY') {
                 showLanguageSwitcher();
                 transitionTo('view-lobby-waiting');
                 $('client-wait-msg').style.display = 'block';
             }
-            else if (data.type === 'ROOM_CLOSED') {
+            else if(data.type === 'ROOM_CLOSED') {
                 showToast(t("toast-server-closed"));
                 clearSession();
                 setTimeout(() => performExitCleanup(), 1500);
@@ -583,6 +887,9 @@ const CATEGORIES = {
             state.assignments = data.assignments || [];
         }
 
+        function broadcast(msg) {
+            hostConnections.forEach(c => c.send(msg));
+        }
 
         function renderLobbyPlayers() {
             const container = $('lobby-players-list');
@@ -603,12 +910,16 @@ const CATEGORIES = {
 
         function kickPlayer(index) {
             const playerToKick = state.players[index];
-            if (!playerToKick) return;
-            sendToPlayer(playerToKick, { type: 'KICKED' });
+            if(!playerToKick) return;
             state.players.splice(index, 1);
             delete state.playerStatus[playerToKick];
+            const connIdx = hostConnections.findIndex(c => c.playerName === playerToKick);
+            if(connIdx !== -1) {
+                hostConnections[connIdx].send({ type: 'KICKED' });
+                hostConnections.splice(connIdx, 1);
+            }
             renderLobbyPlayers();
-            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus });
+            broadcast({ type: 'UPDATE_LOBBY', players: state.players, statuses: state.playerStatus, peerMap: buildPeerMap() });
             saveHostGameState();
         }
 
@@ -770,11 +1081,10 @@ const CATEGORIES = {
                 state.onlineVotes = {};
                 const hostObj = state.assignments.find(a => a.name === state.myName);
                 state.myRole = hostObj;
-                state.players.forEach(playerName => {
-                    if (playerName === state.myName) return;
-                    const playerObj = state.assignments.find(a => a.name === playerName);
-                    if (playerObj) {
-                        sendToPlayer(playerName, {
+                hostConnections.forEach(conn => {
+                    const playerObj = state.assignments.find(a => a.name === conn.playerName);
+                    if(playerObj) {
+                        conn.send({
                             type: 'START_GAME',
                             roleObj: playerObj,
                             time: state.gameTime,
@@ -862,7 +1172,7 @@ const CATEGORIES = {
                                 broadcast({ type: 'SHOW_STARTER', starterName: $('starter-name-display').innerText });
                             }
                         } else {
-                            sendToHost({ type: 'FLIPPED_BACK' });
+                            myConn.send({ type: 'FLIPPED_BACK' });
                         }
                     } else {
                         setTimeout(() => {
@@ -1016,7 +1326,7 @@ const CATEGORIES = {
                 saveHostGameState();
                 checkVoteCompletion();
             } else {
-                sendToHost(myVoteData);
+                myConn.send(myVoteData);
             }
         }
 
@@ -1347,9 +1657,13 @@ const CATEGORIES = {
         }
 
         window.addEventListener('beforeunload', () => {
-            if (state.isOnline && socket) {
-                if (!state.isHost) sendToHost({ type: 'LEAVE_GAME' });
-                try { socket.disconnect(); } catch(e) {}
+            if (state.isOnline) {
+                if (peer) {
+                    if (!state.isHost && myConn) {
+                        myConn.send({ type: 'LEAVE_GAME' });
+                    }
+                    peer.destroy();
+                }
             }
         });
 
@@ -1360,11 +1674,15 @@ const CATEGORIES = {
                     if (state.isHost) {
                         broadcast({ type: 'ROOM_CLOSED' });
                     } else {
-                        sendToHost({ type: 'LEAVE_GAME' });
+                        if (myConn) {
+                            myConn.send({ type: 'LEAVE_GAME' });
+                        }
                     }
                 }
-                if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
-                setTimeout(() => { window.location.href = window.location.pathname; }, 300);
+                if(peer) peer.destroy();
+                setTimeout(() => {
+                    window.location.href = window.location.pathname;
+                }, 300);
             }
         }
 
@@ -1545,3 +1863,4 @@ if (document.readyState === 'loading') {
     console.log('📱 Document already loaded - Setting up Apple device button');
     showAppleDownloadButton();
 }
+
