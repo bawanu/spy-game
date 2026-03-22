@@ -1,4 +1,4 @@
-        const CATEGORIES = {
+const CATEGORIES = {
             "places": {
                 label: "شوێن",
                 icon: "fa-map-marker-alt",
@@ -65,7 +65,7 @@
         function wsConnect(onOpen) {
             if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
             socket = io(SERVER_URL, {
-                transports: ['websocket', 'polling'],
+                transports: ['polling'],
                 reconnection: false
             });
 
@@ -1546,4 +1546,3 @@ if (document.readyState === 'loading') {
     console.log('📱 Document already loaded - Setting up Apple device button');
     showAppleDownloadButton();
 }
-
