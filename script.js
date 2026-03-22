@@ -27,8 +27,7 @@ const CATEGORIES = {
             "custom": { label: "تایبەت", icon: "fa-pen-fancy", words: [] }
         };
 
-        // ── Socket.io server URL — your EvenNode deployment ──────────────────
-        const SERVER_URL = 'https://spy-game.eu-4.evennode.com';
+        const SERVER_URL = 'http://spy-game.eu-4.evennode.com';
 
         let audioMonitorInt = null;
         let audioAnalyserNode = null;
