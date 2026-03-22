@@ -28,7 +28,7 @@
         };
 
         // ── WebSocket server URL — your EvenNode deployment ──────────────────
-        const SERVER_URL = 'wss://spy-game.eu-4.evennode.com/ws';
+        const SERVER_URL = 'wss://spy-game.eu-4.evennode.com';
 
         let audioMonitorInt = null;
         let audioAnalyserNode = null;
