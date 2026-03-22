@@ -27,8 +27,8 @@
             "custom": { label: "تایبەت", icon: "fa-pen-fancy", words: [] }
         };
 
-        // ── WebSocket server URL — your EvenNode deployment ──────────────────
-        const SERVER_URL = 'wss://spy-game.eu-4.evennode.com';
+        // ── Socket.io server URL — your EvenNode deployment ──────────────────
+        const SERVER_URL = 'https://spy-game.eu-4.evennode.com';
 
         let audioMonitorInt = null;
         let audioAnalyserNode = null;
@@ -56,52 +56,50 @@
         let unreadCount = 0;
 
         // ══════════════════════════════════════════════════════════════════════
-        // WebSocket Transport — replaces PeerJS entirely
+        // Socket.io Transport — replaces raw WebSocket
         // ══════════════════════════════════════════════════════════════════════
-        let ws = null;
+        let socket = null;
         let wsReconnectTimer = null;
         let _pendingRestore = false;
 
         function wsConnect(onOpen) {
-            if (ws) { try { ws.close(); } catch(e){} ws = null; }
-            ws = new WebSocket(SERVER_URL);
+            if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
+            socket = io(SERVER_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: false
+            });
 
-            ws.onopen = () => {
+            socket.on('connect', () => {
                 if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
                 onOpen && onOpen();
-            };
+            });
 
-            ws.onmessage = (event) => {
-                let msg;
-                try { msg = JSON.parse(event.data); } catch { return; }
+            socket.on('message', (msg) => {
+                handleClientData(msg);
+            });
 
-                if (state.isHost) {
-                    if (msg.type === 'FROM_CLIENT') {
-                        handleHostData(msg.payload, msg.sender);
-                    } else if (msg.type === 'PLAYER_DISCONNECTED') {
-                        handlePlayerDisconnected(msg.name);
-                    } else if (msg.type === 'ROOM_CREATED') {
-                        onRoomCreated(msg.code);
-                    } else if (msg.type === 'ERROR') {
-                        handleServerError(msg.error);
-                    }
-                } else {
-                    if (msg.type === 'ERROR') {
-                        handleServerError(msg.error);
-                    } else {
-                        handleClientData(msg);
-                    }
-                }
-            };
+            socket.on('FROM_CLIENT', ({ sender, payload }) => {
+                handleHostData(payload, sender);
+            });
 
-            ws.onclose = () => {
+            socket.on('PLAYER_DISCONNECTED', ({ name }) => {
+                handlePlayerDisconnected(name);
+            });
+
+            socket.on('ROOM_CREATED', ({ code }) => {
+                onRoomCreated(code);
+            });
+
+            socket.on('ERROR', ({ error }) => {
+                handleServerError(error);
+            });
+
+            socket.on('disconnect', () => {
                 if (!state.isOnline) return;
                 if (state.isHost) {
-                    // Host lost connection — try to rejoin as host
                     showToast(t("toast-reconnecting"));
                     wsReconnectTimer = setTimeout(() => createOnlineRoom(true), 2500);
                 } else {
-                    // Client lost connection — try to rejoin
                     $('client-wait-msg').innerText = "پەیوەندی لەگەڵ سێرڤەر پچڕا. پەیوەندی دەبەستێتەوە...";
                     showToast(t("toast-reconnecting"));
                     const code = sessionStorage.getItem('spy_room_code');
@@ -110,30 +108,30 @@
                         wsReconnectTimer = setTimeout(() => joinOnlineRoom(true), 2500);
                     }
                 }
-            };
+            });
 
-            ws.onerror = () => {};
+            socket.on('connect_error', () => {});
         }
 
-        function wsSend(obj) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                try { ws.send(JSON.stringify(obj)); } catch(e) {}
+        function wsSend(event, data) {
+            if (socket && socket.connected) {
+                try { socket.emit(event, data); } catch(e) {}
             }
         }
 
         // Host: broadcast to all clients via server
         function broadcast(payload) {
-            wsSend({ type: 'TO_ALL', payload });
+            wsSend('TO_ALL', { payload });
         }
 
         // Host: send to one specific client by name via server
         function sendToPlayer(name, payload) {
-            wsSend({ type: 'TO_ONE', name, payload });
+            wsSend('TO_ONE', { name, payload });
         }
 
         // Client: send to host via server
         function sendToHost(payload) {
-            wsSend({ type: 'TO_HOST', payload });
+            wsSend('TO_HOST', { payload });
         }
 
         function handleServerError(error) {
@@ -185,7 +183,7 @@
 
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === 'visible' && state.isOnline) {
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                if (!socket || !socket.connected) {
                     if (state.isHost) createOnlineRoom(true);
                     else joinOnlineRoom(true);
                 }
@@ -323,7 +321,7 @@
         function performExitCleanup() {
             showLanguageSwitcher();
             if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
-            if (ws) { try { ws.close(); } catch(e){} ws = null; }
+            if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
             state.players = [];
             state.playerStatus = {};
             state.talkingStatus = {};
@@ -361,7 +359,7 @@
             }
             saveSession(true, name, customCode);
             wsConnect(() => {
-                wsSend({ type: 'CREATE_ROOM', code: customCode, name });
+                wsSend('CREATE_ROOM', { code: customCode, name });
             });
         }
 
@@ -394,7 +392,7 @@
             _pendingRestore = isRestore;
             if (!isRestore) showToast(t("toast-connecting"));
             wsConnect(() => {
-                wsSend({ type: 'JOIN_ROOM', code, name, isRejoining: isRestore });
+                wsSend('JOIN_ROOM', { code, name, isRejoining: isRestore });
                 document.querySelectorAll('.chat-trigger').forEach(b => b.style.display = 'grid');
                 document.querySelectorAll('.mic-trigger').forEach(b => b.style.display = 'none');
                 const activeId = document.querySelector('.view.active')?.id || '';
@@ -430,7 +428,7 @@
                 if (finalName !== data.name) {
                     sendToPlayer(senderName, { type: 'NAME_CHANGED', newName: finalName });
                     // Tell server to update its internal name mapping too
-                    wsSend({ type: 'RENAME_PLAYER', oldName: senderName, newName: finalName });
+                    wsSend('RENAME_PLAYER', { oldName: senderName, newName: finalName });
                 }
                 state.playerStatus[finalName] = 'online';
                 const isKnown = state.players.includes(finalName);
@@ -1350,9 +1348,9 @@
         }
 
         window.addEventListener('beforeunload', () => {
-            if (state.isOnline && ws) {
+            if (state.isOnline && socket) {
                 if (!state.isHost) sendToHost({ type: 'LEAVE_GAME' });
-                try { ws.close(); } catch(e) {}
+                try { socket.disconnect(); } catch(e) {}
             }
         });
 
@@ -1366,7 +1364,7 @@
                         sendToHost({ type: 'LEAVE_GAME' });
                     }
                 }
-                if (ws) { try { ws.close(); } catch(e){} ws = null; }
+                if (socket) { try { socket.disconnect(); } catch(e){} socket = null; }
                 setTimeout(() => { window.location.href = window.location.pathname; }, 300);
             }
         }
