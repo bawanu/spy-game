@@ -48,7 +48,7 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: textShine 8s linear infinite;
+            animation: textShine 20s linear infinite; /* slowed from 8s */
         }
 
         /* Pause all animations inside non-active views to save CPU */
@@ -108,9 +108,10 @@
             50% { transform: scale(1.1); opacity: 0.5; }
         }
 
-        /* GPU layer promotion for frequently animated elements */
+        /* GPU layer promotion only for elements that actually animate frequently */
         .game-card { will-change: transform; }
-        .view { will-change: opacity, transform; }
+        /* Removed: will-change on .view — it was applied to ALL views at once,
+           creating unnecessary GPU compositing layers for every hidden screen */
 
         .toast-container {
             position: fixed;
@@ -215,20 +216,15 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: textShine 10s linear infinite;
+            animation: textShine 20s linear infinite; /* slowed from 10s — less GPU work */
         }
 
         h2 {
             font-size: 1.4rem;
             margin: 10px 0;
             text-align: center;
-            background: linear-gradient(120deg, #fff 40%, #c7d2fe 50%, #fff 60%);
-            background-size: 200% auto;
-            color: transparent;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: textShine 12s linear infinite;
+            color: #c7d2fe; /* static color — removed continuous gradient animation */
+            -webkit-text-fill-color: #c7d2fe;
         }
 
         .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; font-weight: 400; text-align: center; }
@@ -262,7 +258,8 @@
         .main-input:focus { border-color: var(--primary); }
 
         .add-btn { width: 50px; background: var(--primary); border: none; border-radius: 16px; color: white; font-size: 1.2rem; cursor: pointer; position: relative; overflow: hidden; }
-        .add-btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 200%; height: 100%; background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-25deg); animation: shimmer-sweep 3s infinite linear; pointer-events: none; }
+        .add-btn::after { content: ''; position: absolute; top: 0; left: -200%; width: 200%; height: 100%; background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-25deg); pointer-events: none; }
+        .add-btn:hover::after { animation: shimmer-sweep 0.6s ease-out forwards; }
 
         .stacked-inputs { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
         .stacked-buttons { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
@@ -290,7 +287,7 @@
         }
         .topic-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
         .topic-card.selected { background: rgba(99, 102, 241, 0.2); border-color: var(--primary); box-shadow: inset 0 0 10px rgba(99, 102, 241, 0.2); }
-        .topic-card.selected::before { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.4), transparent); transform: skewX(-25deg); animation: shimmer-sweep 5s infinite; pointer-events: none; }
+        .topic-card.selected::before { content: none; } /* removed continuous shimmer — was always running on every selected card */
         .topic-card.selected::after { content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: 8px; right: 8px; font-size: 0.8rem; color: var(--primary); }
         .topic-card i { font-size: 1.5rem; margin-bottom: 5px; }
 
@@ -311,19 +308,21 @@
             cursor: pointer; margin-top: 5px; z-index: 100;
             position: relative; overflow: hidden; transition: 0.2s;
             display: flex; justify-content: center; align-items: center; gap: 10px; flex-shrink: 0;
-            animation: glow-pulse 6s infinite;
+            box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.5); /* static glow — was infinite glow-pulse animation */
         }
-        .primary-btn.secondary { background: var(--glass); border: 1px solid var(--glass-border); animation: none; }
-        .primary-btn.danger { background: rgba(244, 63, 94, 0.2); border: 1px solid var(--accent); color: var(--accent); animation: none; }
+        .primary-btn.secondary { background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; }
+        .primary-btn.danger { background: rgba(244, 63, 94, 0.2); border: 1px solid var(--accent); color: var(--accent); box-shadow: none; }
         .primary-btn.danger:hover { background: rgba(244, 63, 94, 0.4); }
-        .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); animation: none; }
+        .primary-btn.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); box-shadow: none; }
         .primary-btn.success:hover { background: rgba(16, 185, 129, 0.4); }
 
-        .primary-btn span, .primary-btn i { position: relative; z-index: 2; background: linear-gradient(120deg, #fff 40%, #e0e7ff 50%, #fff 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 8s linear infinite; }
-        .primary-btn::after { content: ''; position: absolute; top: 0; left: 0; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); animation: shimmer-sweep 5s infinite ease-in-out; pointer-events: none; }
+        .primary-btn span, .primary-btn i { position: relative; z-index: 2; color: white; -webkit-text-fill-color: white; } /* static white — was infinite textShine gradient animation */
+        /* Shimmer on ::after only plays on hover — was running infinitely on all buttons at once */
+        .primary-btn::after { content: ''; position: absolute; top: 0; left: -200%; width: 200%; height: 100%; background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%); transform: skewX(-25deg); transition: none; pointer-events: none; }
+        .primary-btn:hover::after { animation: shimmer-sweep 0.6s ease-out forwards; }
         .primary-btn:active { transform: scale(0.98); }
         .primary-btn:hover { box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.7); }
-        .primary-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; animation: none; }
+        .primary-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; box-shadow: none; }
 
         .card-wrapper { perspective: 1500px; width: 100%; max-width: 340px; height: 55vh; min-height: 350px; max-height: 550px; margin: 20px 0; transition: all 0.3s ease; }
         @media (min-width: 768px) { .card-wrapper { max-width: 450px; height: 60vh; max-height: 650px; } }
@@ -342,10 +341,10 @@
         .tap-text { color: rgba(255,255,255,0.6); font-size: 1rem; letter-spacing: 2px; text-transform: uppercase; }
         .face-back { transform: rotateY(180deg); background: white; color: #1e293b; padding: 20px; }
         .role-badge { background: #1e293b; color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; }
-        .secret-word { font-size: 2.5rem; font-weight: 900; color: #1e293b; line-height: 1.4; margin: 15px 0; word-break: break-word; background: linear-gradient(120deg, #1e293b 40%, #6366f1 50%, #1e293b 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 7s linear infinite; }
+        .secret-word { font-size: 2.5rem; font-weight: 900; color: #1e293b; line-height: 1.4; margin: 15px 0; word-break: break-word; background: linear-gradient(120deg, #1e293b 40%, #6366f1 50%, #1e293b 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 15s linear infinite; }
         .face-back.spy-mode { background: #111; color: #fff; border: 3px solid var(--accent); }
         .face-back.spy-mode .role-badge { background: var(--accent); color: #fff; }
-        .face-back.spy-mode .secret-word { color: var(--accent); font-size: 3.5rem; text-shadow: 0 0 20px rgba(244, 63, 94, 0.4); margin: 30px 0; background: linear-gradient(120deg, #f43f5e 40%, #fff 50%, #f43f5e 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 7s linear infinite; }
+        .face-back.spy-mode .secret-word { color: var(--accent); font-size: 3.5rem; text-shadow: 0 0 20px rgba(244, 63, 94, 0.4); margin: 30px 0; background: linear-gradient(120deg, #f43f5e 40%, #fff 50%, #f43f5e 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: textShine 15s linear infinite; }
 
         .timer-ring {
             position: relative; width: 220px; height: 220px; border-radius: 50%;
@@ -447,13 +446,22 @@
         .chat-input-area { padding: 15px; background: rgba(0,0,0,0.2); display: flex; gap: 8px; border-top: 1px solid var(--glass-border); }
         .unread-badge { position: absolute; top: -5px; right: -5px; background: var(--accent); color: white; font-size: 0.65rem; width: 20px; height: 20px; border-radius: 50%; display: none; place-items: center; border: 2px solid var(--bg); font-weight: bold; }
 
-        @media (max-height: 600px) {
+@media (max-height: 600px) {
             h1 { font-size: 1.4rem; }
             .card-wrapper { height: 60vh; min-height: 250px; }
             .timer-ring { width: 160px; height: 160px; margin: 10px 0; }
             .time-text { font-size: 2.5rem; }
             .topics-grid { grid-template-columns: repeat(3, 1fr); }
             .view { padding: 10px 20px; }
+        }
+
+        /* Accessibility + performance: disable decorative animations for users with OS reduce-motion setting */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
 
 
