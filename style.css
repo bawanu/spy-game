@@ -139,12 +139,15 @@
             align-items: center;
             gap: 15px;
             font-size: 0.95rem;
+            /* Enter animation — CSS only for the appear, JS handles the exit */
             animation: toastEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, shake 0.4s 0.2s;
             pointer-events: all;
-            /* Removed: backdrop-filter: blur(10px) — GPU-intensive, background is already opaque */
-        }
+            cursor: pointer; /* hint it's tappable to dismiss */
+            /* Ensure element starts visible even if animation fails (Lockdown Mode) */
+            opacity: 1;
+        }  
 
-        .toast-box.hiding { animation: toastExit 0.4s forwards; }
+        .toast-box.hiding { animation: toastExit 0.35s forwards; }
         .toast-icon { font-size: 1.5rem; color: var(--accent); animation: pulse 3s infinite; }
         @keyframes toastEnter { from { opacity: 0; transform: translateY(-50px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastExit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-20px) scale(0.9); } }
