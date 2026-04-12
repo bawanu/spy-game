@@ -150,12 +150,38 @@
             } else {
                 hideLanguageSwitcher();
             }
+            // Lockdown Mode safety: forcibly clear any toasts stuck in the DOM
+            // (animationend may never fire on locked-down iOS devices)
+            setTimeout(() => {
+                const container = $('toast-container');
+                if (container) {
+                    Array.from(container.children).forEach(child => {
+                        if (child.parentNode) child.parentNode.removeChild(child);
+                    });
+                }
+            }, 5000);
         };
+
+        function _removeToast(toast) {
+            if (!toast || !toast.parentNode) return;
+            // JS-driven fade out — reliable on ALL browsers including Lockdown Mode
+            toast.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-20px) scale(0.9)';
+            // Hard remove after transition time as guarantee
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 400);
+        }
 
         function showToast(message) {
             const container = $('toast-container');
+
+            // Safety net: if any old toasts are somehow stuck, purge them
+            const stale = container.querySelectorAll('.toast-box[data-stuck="1"]');
+            stale.forEach(s => { if (s.parentNode) s.parentNode.removeChild(s); });
+
             const toast = document.createElement('div');
             toast.className = 'toast-box';
+
             const icon = document.createElement('i');
             icon.className = 'fas fa-exclamation-circle toast-icon';
             const text = document.createElement('span');
@@ -165,10 +191,29 @@
             container.appendChild(toast);
             playSfx('pop');
             triggerVibrate(200);
-            setTimeout(() => {
+
+            // Click/tap to dismiss immediately (also works if animation is broken)
+            toast.addEventListener('click', () => _removeToast(toast), { once: true });
+            toast.addEventListener('touchend', () => _removeToast(toast), { once: true });
+
+            // Primary removal: JS-driven after 3s (no dependency on animationend)
+            const removeTimer = setTimeout(() => {
                 toast.classList.add('hiding');
-                toast.addEventListener('animationend', () => toast.remove());
+                _removeToast(toast);
             }, 3000);
+
+            // Absolute safety net: force-remove after 4.5s no matter what
+            const safetyTimer = setTimeout(() => {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 4500);
+
+            // Store timers on the element so click-dismiss can clear them
+            toast._removeTimer = removeTimer;
+            toast._safetyTimer = safetyTimer;
+            toast.addEventListener('click', () => {
+                clearTimeout(toast._removeTimer);
+                clearTimeout(toast._safetyTimer);
+            }, { once: true });
         }
 
         async function toggleMic() {
